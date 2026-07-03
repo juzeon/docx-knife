@@ -1,3 +1,458 @@
-"""Document lifecycle: ``Document.open`` and ``Document.save`` (Phase 2+)."""
+"""Document lifecycle and Phase-2 read/query APIs.
+
+Only the open half of the document lifecycle is implemented in Phase 2.
+``save()`` is intentionally absent; Phase 7 owns the persistence surface.
+"""
 
 from __future__ import annotations
+
+import hashlib
+import os
+import re
+import shutil
+import tempfile
+import zipfile
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+from types import TracebackType
+
+from lxml import etree
+
+from . import _ooxml
+from ._models import (
+    Pagination,
+    ParagraphInfo,
+    ParagraphListResult,
+    ParagraphLocation,
+    ParagraphMatchInfo,
+    ParagraphSearchResult,
+    Selector,
+    TextMatch,
+)
+from .anchors import AnchorManifest
+from .errors import (
+    AmbiguousTextMatchError,
+    DocumentNotFoundError,
+    InvalidDocumentError,
+    InvalidPatternError,
+    ParagraphNotFoundError,
+    TextNotFoundError,
+)
+
+MAIN_PART: str = "word/document.xml"
+
+
+@dataclass(frozen=True, slots=True)
+class _SourceFingerprint:
+    sha256: str
+    size: int
+    mtime_ns: int
+
+
+@dataclass(slots=True)
+class _ParagraphRecord:
+    target_id: str
+    node: etree._Element
+    location: ParagraphLocation
+    style_id: str | None
+    w14_para_id: str | None
+
+
+@dataclass(slots=True)
+class _Index:
+    records: tuple[_ParagraphRecord, ...] = ()
+    id_to_record: dict[str, _ParagraphRecord] = field(default_factory=dict)
+
+
+class Document:
+    """A DOCX file opened for read-only query in Phase 2."""
+
+    def __init__(
+        self,
+        *,
+        source_path: Path,
+        temp_dir: Path,
+        tree: etree._ElementTree,
+        fingerprint: _SourceFingerprint,
+    ) -> None:
+        self._source_path = source_path
+        self._temp_dir = temp_dir
+        self._tree = tree
+        self._root = tree.getroot()
+        self._source_fingerprint = fingerprint
+        self._manifest = AnchorManifest(self._root)
+        self._index_cache: _Index | None = None
+        self._closed = False
+        self._build_index()
+
+    # ------------------------------------------------------------------ open
+
+    @classmethod
+    def open(cls, source_path: str | os.PathLike[str]) -> Document:
+        path = Path(source_path)
+        if not path.is_file():
+            raise DocumentNotFoundError(path=str(path))
+        raw_bytes = path.read_bytes()
+        fingerprint = _fingerprint(path, raw_bytes)
+        temp_dir = Path(tempfile.mkdtemp(prefix="docx-knife-"))
+        try:
+            tree = _load_main_document(path, temp_dir)
+        except BaseException:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise
+        return cls(
+            source_path=path,
+            temp_dir=temp_dir,
+            tree=tree,
+            fingerprint=fingerprint,
+        )
+
+    # ----------------------------------------------------------- lifecycle
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        shutil.rmtree(self._temp_dir, ignore_errors=True)
+
+    def __enter__(self) -> Document:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self.close()
+
+    # --------------------------------------------------------------- state
+
+    @property
+    def source_path(self) -> Path:
+        return self._source_path
+
+    @property
+    def _fingerprint(self) -> _SourceFingerprint:
+        return self._source_fingerprint
+
+    # -------------------------------------------------------------- index
+
+    def _build_index(self) -> None:
+        records: list[_ParagraphRecord] = []
+        id_to_record: dict[str, _ParagraphRecord] = {}
+        for node, location, style_id, w14_para_id in _ooxml.iter_editable_paragraphs(
+            self._root
+        ):
+            existing = self._manifest.id_for_node(node)
+            target_id = existing if existing is not None else self._manifest.allocate()
+            if existing is None:
+                self._manifest.bind(target_id, node)
+            record = _ParagraphRecord(
+                target_id=target_id,
+                node=node,
+                location=location,
+                style_id=style_id,
+                w14_para_id=w14_para_id,
+            )
+            records.append(record)
+            id_to_record[target_id] = record
+        self._index_cache = _Index(records=tuple(records), id_to_record=id_to_record)
+
+    def _invalidate_index(self) -> None:
+        self._index_cache = None
+
+    def _ensure_index(self) -> _Index:
+        if self._index_cache is None:
+            self._build_index()
+        assert self._index_cache is not None
+        return self._index_cache
+
+    # -------------------------------------------------------------- reads
+
+    def paragraph_count(self) -> int:
+        return len(self._ensure_index().records)
+
+    def list_paragraphs(
+        self,
+        start: int = 1,
+        limit: int | None = None,
+        max_chars: int = 80,
+        raw: bool = False,
+    ) -> ParagraphListResult:
+        records = self._ensure_index().records
+        total = len(records)
+        window = _window_slice(records, start=start, limit=limit)
+        infos = tuple(
+            _record_to_info(record, max_chars=max_chars, raw=raw) for record in window
+        )
+        return ParagraphListResult(
+            paragraphs=infos,
+            pagination=Pagination(
+                start=start, limit=limit, returned=len(infos), total=total
+            ),
+        )
+
+    def get_paragraph(self, paragraph_id: str, raw: bool = False) -> str:
+        record = self._get_record(paragraph_id)
+        return _record_content(record, raw=raw)
+
+    def get_visible_text(self, raw: bool = False) -> str:
+        records = self._ensure_index().records
+        if raw:
+            return "".join(_ooxml.serialize_paragraph(rec.node) for rec in records)
+        return "\n".join(_ooxml.visible_text_plain(rec.node) for rec in records)
+
+    # ------------------------------------------------------------- search
+
+    def grep_paragraphs(
+        self,
+        pattern: str,
+        regex: bool = False,
+        start: int = 1,
+        limit: int | None = None,
+        max_chars: int = 0,
+        raw: bool = False,
+    ) -> ParagraphSearchResult:
+        matcher = _compile_matcher(pattern, regex=regex)
+        records = self._ensure_index().records
+        window = _window_slice(records, start=start, limit=limit)
+        matches: list[ParagraphMatchInfo] = []
+        total_matches = 0
+        for record in window:
+            haystack = _record_content(record, raw=raw)
+            ranges = matcher.find_all(haystack)
+            if not ranges:
+                continue
+            total_matches += len(ranges)
+            info = _record_to_info(record, max_chars=max_chars, raw=raw)
+            matches.append(
+                ParagraphMatchInfo(
+                    paragraph=info,
+                    ranges=tuple(ranges),
+                    match_count=len(ranges),
+                )
+            )
+        return ParagraphSearchResult(
+            matches=tuple(matches),
+            total_matches=total_matches,
+            pagination=Pagination(
+                start=start,
+                limit=limit,
+                returned=len(matches),
+                total=len(records),
+            ),
+        )
+
+    def count_matches(
+        self,
+        pattern: str,
+        regex: bool = False,
+        paragraph_id: str | None = None,
+        raw: bool = False,
+    ) -> int:
+        matcher = _compile_matcher(pattern, regex=regex)
+        total = 0
+        for record in self._search_records(paragraph_id):
+            total += len(matcher.find_all(_record_content(record, raw=raw)))
+        return total
+
+    def find_text(
+        self,
+        pattern: str,
+        regex: bool = False,
+        occurrence: int | None = None,
+        paragraph_id: str | None = None,
+        raw: bool = False,
+    ) -> TextMatch | list[TextMatch] | None:
+        matcher = _compile_matcher(pattern, regex=regex)
+        all_matches: list[TextMatch] = []
+        for record in self._search_records(paragraph_id):
+            haystack = _record_content(record, raw=raw)
+            ranges = matcher.find_all(haystack)
+            if not ranges:
+                continue
+            for char_range in ranges:
+                # TODO(phase3): replace node_range/crosses_nodes with TextMap results.
+                all_matches.append(
+                    TextMatch(
+                        paragraph_id=record.target_id,
+                        char_range=char_range,
+                        node_range=char_range,
+                        crosses_nodes=False,
+                        total_matches=0,
+                    )
+                )
+        total = len(all_matches)
+        all_matches = [
+            TextMatch(
+                paragraph_id=m.paragraph_id,
+                char_range=m.char_range,
+                node_range=m.node_range,
+                crosses_nodes=m.crosses_nodes,
+                total_matches=total,
+            )
+            for m in all_matches
+        ]
+
+        if occurrence is None:
+            if total == 0:
+                return None
+            if total > 1:
+                raise AmbiguousTextMatchError(
+                    target_id=paragraph_id or "*",
+                    selector=Selector(pattern=pattern, regex=regex),
+                    total_matches=total,
+                )
+            return all_matches[0]
+        if occurrence == -1:
+            return list(all_matches)
+        if 0 <= occurrence < total:
+            return all_matches[occurrence]
+        raise TextNotFoundError(
+            target_id=paragraph_id or "*",
+            selector=Selector(pattern=pattern, regex=regex),
+            occurrence=occurrence,
+            total_matches=total,
+        )
+
+    # ------------------------------------------------------------- helpers
+
+    def _get_record(self, paragraph_id: str) -> _ParagraphRecord:
+        record = self._ensure_index().id_to_record.get(paragraph_id)
+        if record is None:
+            raise ParagraphNotFoundError(target_id=paragraph_id)
+        # Validate the manifest still binds this ID to the same live node.
+        self._manifest.resolve(paragraph_id)
+        return record
+
+    def _search_records(self, paragraph_id: str | None) -> tuple[_ParagraphRecord, ...]:
+        if paragraph_id is None:
+            return self._ensure_index().records
+        return (self._get_record(paragraph_id),)
+
+
+# ---------------------------------------------------------------------------
+# Module-level helpers
+# ---------------------------------------------------------------------------
+
+
+def _fingerprint(path: Path, data: bytes) -> _SourceFingerprint:
+    stat = path.stat()
+    digest = hashlib.sha256(data).hexdigest()
+    return _SourceFingerprint(sha256=digest, size=stat.st_size, mtime_ns=stat.st_mtime_ns)
+
+
+def _load_main_document(source_path: Path, temp_dir: Path) -> etree._ElementTree:
+    path_str = str(source_path)
+    try:
+        with zipfile.ZipFile(source_path) as zf:
+            if MAIN_PART not in zf.namelist():
+                raise InvalidDocumentError(
+                    path=path_str,
+                    reason=f"missing required part {MAIN_PART!r}",
+                )
+            zf.extractall(temp_dir)
+    except zipfile.BadZipFile as exc:
+        raise InvalidDocumentError(path=path_str, reason="not a valid ZIP archive") from exc
+    main_path = temp_dir / MAIN_PART
+    parser = _ooxml.build_secure_parser()
+    try:
+        tree = etree.parse(str(main_path), parser)
+    except etree.XMLSyntaxError as exc:
+        raise InvalidDocumentError(
+            path=path_str,
+            reason=f"cannot parse {MAIN_PART}: {exc.msg}",
+        ) from exc
+    return tree
+
+
+def _window_slice(
+    records: tuple[_ParagraphRecord, ...],
+    *,
+    start: int,
+    limit: int | None,
+) -> tuple[_ParagraphRecord, ...]:
+    if start < 1:
+        raise ValueError("start must be >= 1")
+    if limit is not None and limit < 0:
+        raise ValueError("limit must be >= 0 when provided")
+    begin = start - 1
+    if begin >= len(records):
+        return ()
+    if limit is None:
+        return records[begin:]
+    return records[begin : begin + limit]
+
+
+def _record_content(record: _ParagraphRecord, *, raw: bool) -> str:
+    if raw:
+        return _ooxml.serialize_paragraph(record.node)
+    return _ooxml.visible_text_plain(record.node)
+
+
+def _record_to_info(
+    record: _ParagraphRecord, *, max_chars: int, raw: bool
+) -> ParagraphInfo:
+    content = _record_content(record, raw=raw)
+    truncated = _truncate(content, max_chars)
+    text = None if raw else truncated
+    xml = truncated if raw else None
+    return ParagraphInfo(
+        id=record.target_id,
+        global_ordinal=record.location.global_ordinal,
+        style_id=record.style_id,
+        location=record.location,
+        text=text,
+        xml=xml,
+        w14_para_id=record.w14_para_id,
+    )
+
+
+def _truncate(value: str, max_chars: int) -> str:
+    if max_chars <= 0 or len(value) <= max_chars:
+        return value
+    return value[:max_chars]
+
+
+class _Matcher:
+    def __init__(self, finder: Callable[[str], list[tuple[int, int]]]) -> None:
+        self._finder = finder
+
+    def find_all(self, haystack: str) -> list[tuple[int, int]]:
+        return self._finder(haystack)
+
+
+def _compile_matcher(pattern: str, *, regex: bool) -> _Matcher:
+    if regex:
+        try:
+            compiled = re.compile(pattern)
+        except re.error as exc:
+            raise InvalidPatternError(pattern=pattern, reason=str(exc)) from exc
+
+        def _find_regex(haystack: str) -> list[tuple[int, int]]:
+            return [(m.start(), m.end()) for m in compiled.finditer(haystack)]
+
+        return _Matcher(_find_regex)
+
+    if not pattern:
+        raise InvalidPatternError(pattern=pattern, reason="literal pattern must not be empty")
+    needle = pattern
+
+    def _find_literal(haystack: str) -> list[tuple[int, int]]:
+        found: list[tuple[int, int]] = []
+        start = 0
+        while True:
+            idx = haystack.find(needle, start)
+            if idx < 0:
+                break
+            end = idx + len(needle)
+            found.append((idx, end))
+            start = end
+        return found
+
+    return _Matcher(_find_literal)
+
+
+__all__ = ["Document"]

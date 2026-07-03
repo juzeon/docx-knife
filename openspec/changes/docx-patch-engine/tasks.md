@@ -7,13 +7,13 @@
 
 ## 2. Document loading, discovery, and anchors
 
-- [ ] 2.1 Implement `Document.open`, context-manager cleanup, DOCX/ZIP validation, private temporary workspace management, and source fingerprint capture.
-- [ ] 2.2 Parse only `word/document.xml` with secure XML settings and build document-order traversal for body and table-cell paragraphs while excluding SDT descendants from editing.
-- [ ] 2.3 Implement the anchor manifest with deterministic instance-local IDs, live-node validation, monotonic allocation, deletion/invalidation, and no fuzzy relocation or ID reuse.
-- [ ] 2.4 Build paragraph style and location metadata, including SDT structural occupancy, nested-table global indexes, `gridBefore`, `gridSpan`, logical columns, vertical-merge metadata, and nesting depth.
-- [ ] 2.5 Implement `paragraph_count`, paginated `list_paragraphs`, `get_paragraph`, and `get_visible_text` with visible/raw field exclusivity and exact truncation semantics.
-- [ ] 2.6 Implement literal/regex `grep_paragraphs`, `find_text`, and `count_matches`, including complete-value search before preview truncation and structured match ranges.
-- [ ] 2.7 Add focused unit and real-DOCX tests for missing/duplicate `w14:paraId`, SDT exclusion, stale anchors, pagination, raw queries, nested tables, spans, and location metadata.
+- [x] 2.1 Implement `Document.open`, context-manager cleanup, DOCX/ZIP validation, private temporary workspace management, and source fingerprint capture.
+- [x] 2.2 Parse only `word/document.xml` with secure XML settings and build document-order traversal for body and table-cell paragraphs while excluding SDT descendants from editing.
+- [x] 2.3 Implement the anchor manifest with deterministic instance-local IDs, live-node validation, monotonic allocation, deletion/invalidation, and no fuzzy relocation or ID reuse.
+- [x] 2.4 Build paragraph style and location metadata, including SDT structural occupancy, nested-table global indexes, `gridBefore`, `gridSpan`, logical columns, vertical-merge metadata, and nesting depth.
+- [x] 2.5 Implement `paragraph_count`, paginated `list_paragraphs`, `get_paragraph`, and `get_visible_text` with visible/raw field exclusivity and exact truncation semantics.
+- [x] 2.6 Implement literal/regex `grep_paragraphs`, `find_text`, and `count_matches`, including complete-value search before preview truncation and structured match ranges.
+- [x] 2.7 Add focused unit and real-DOCX tests for missing/duplicate `w14:paraId`, SDT exclusion, stale anchors, pagination, raw queries, nested tables, spans, and location metadata.
 
 ## 3. TextMap and paragraph-internal editing
 
@@ -38,13 +38,13 @@
 
 ## 5. Content resolution and normalization
 
-- [ ] 5.1 Implement exclusive `content_literal`/`content_ref` validation and a resolver interface that completes before any DOM mutation.
-- [ ] 5.2 Implement single-value JSONPath resolution with explicit source loading and structured missing/multi-value failures.
-- [ ] 5.3 Implement file references with configured allowed input roots, encoding validation, path-containment enforcement, and traversal/symlink security tests.
-- [ ] 5.4 Implement command references with argv-only execution, no shell, workspace-confined working directory, bounded stdout, controlled environment policy, timeout termination, exit-code checks, and UTF-8 validation.
-- [ ] 5.5 Apply identical visible-mode newline expansion to literal, JSONPath, file, and command results while treating raw-mode newlines only as XML whitespace.
-- [ ] 5.6 Specify and implement deterministic `normalize_text=true` punctuation/spacing rules with URL, email, and code-span protection; preserve exact input by default and never trim boundary spaces.
-- [ ] 5.7 Add failure and edge tests for source cardinality, path escape, decoding, JSONPath shapes, command timeout/nonzero/invalid UTF-8/output limits, newline runs, and protected-token normalization.
+- [x] 5.1 Implement exclusive `content_literal`/`content_ref` validation and a resolver interface that completes before any DOM mutation.
+- [x] 5.2 Implement single-value JSONPath resolution with explicit source loading and structured missing/multi-value failures.
+- [x] 5.3 Implement file references with configured allowed input roots, encoding validation, path-containment enforcement, and traversal/symlink security tests.
+- [x] 5.4 Implement command references with argv-only execution, no shell, workspace-confined working directory, bounded stdout, controlled environment policy, timeout termination, exit-code checks, and UTF-8 validation.
+- [x] 5.5 Apply identical visible-mode newline expansion to literal, JSONPath, file, and command results while treating raw-mode newlines only as XML whitespace.
+- [x] 5.6 Specify and implement deterministic `normalize_text=true` punctuation/spacing rules with URL, email, and code-span protection; preserve exact input by default and never trim boundary spaces.
+- [x] 5.7 Add failure and edge tests for source cardinality, path escape, decoding, JSONPath shapes, command timeout/nonzero/invalid UTF-8/output limits, newline runs, and protected-token normalization.
 
 ## 6. Batch transaction, validation, and audit
 

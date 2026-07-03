@@ -33,6 +33,8 @@ from ._models import (
     TextMatch,
 )
 from ._schema import BATCH_SCHEMA, validate_batch
+from .content import ContentResolverConfig
+from .document import Document
 from .errors import (
     AmbiguousTextMatchError,
     BatchOperationError,
@@ -57,11 +59,13 @@ __all__ = [
     "BatchOperationError",
     "ContentItem",
     "ContentRef",
+    "ContentResolverConfig",
     "ContentSourceCommand",
     "ContentSourceFile",
     "ContentSourceJsonPath",
     "DeletePara",
     "DeleteText",
+    "Document",
     "DocumentNotFoundError",
     "DocxKnifeError",
     "EditOperation",
