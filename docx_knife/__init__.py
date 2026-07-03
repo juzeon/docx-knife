@@ -49,6 +49,7 @@ from .errors import (
     UnsupportedStructureError,
     ValidationError,
 )
+from .paragraph import Paragraph
 
 __version__ = "0.1.0"
 
@@ -79,6 +80,7 @@ __all__ = [
     "InvalidPatternError",
     "OperationResult",
     "Pagination",
+    "Paragraph",
     "ParagraphId",
     "ParagraphInfo",
     "ParagraphListResult",

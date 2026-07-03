@@ -124,10 +124,61 @@ def build_raw_query(path: Path) -> Path:
     return path
 
 
+def build_abcd(path: Path) -> Path:
+    """Four plain sibling paragraphs A, B, C, D — the workhorse ordering fixture."""
+    body = _p("A") + _p("B") + _p("C") + _p("D")
+    _write_docx(path, _wrap_document(body))
+    return path
+
+
+def build_formatted(path: Path) -> Path:
+    """One paragraph with Heading1 style and a bold ordinary text run."""
+    body = (
+        '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr>'
+        "<w:r><w:rPr><w:b/></w:rPr><w:t>Anchor text.</w:t></w:r></w:p>"
+        + _p("Second.")
+    )
+    _write_docx(path, _wrap_document(body))
+    return path
+
+
+def build_hyperlink_para(path: Path) -> Path:
+    """Paragraph containing a hyperlink plus a locally bold run."""
+    body = (
+        "<w:p>"
+        '<w:hyperlink r:id="rId1" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        "<w:r><w:t>anchor</w:t></w:r>"
+        "</w:hyperlink>"
+        "<w:r><w:rPr><w:b/></w:rPr><w:t> tail</w:t></w:r>"
+        "</w:p>"
+        + _p("After.")
+    )
+    _write_docx(path, _wrap_document(body))
+    return path
+
+
+def build_table_paragraph(path: Path) -> Path:
+    """Body with a leading paragraph and a nested single-cell table."""
+    inner_table = (
+        "<w:tbl>"
+        "<w:tr>"
+        "<w:tc>" + _p("cell-first") + "</w:tc>"
+        "</w:tr>"
+        "</w:tbl>"
+    )
+    body = _p("preamble") + inner_table + _p("epilogue")
+    _write_docx(path, _wrap_document(body))
+    return path
+
+
 __all__ = [
+    "build_abcd",
     "build_duplicate_paraid",
+    "build_formatted",
+    "build_hyperlink_para",
     "build_nested_tables",
     "build_raw_query",
     "build_sdt",
     "build_simple",
+    "build_table_paragraph",
 ]

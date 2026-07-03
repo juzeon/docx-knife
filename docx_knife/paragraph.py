@@ -9,14 +9,18 @@ for structured errors.
 from __future__ import annotations
 
 import copy
+import weakref
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from lxml import etree
 
-from ._models import Selector
+from ._models import ContentItem, Selector
 from .errors import (
     AmbiguousTextMatchError,
     InvalidContentError,
+    ParagraphNotFoundError,
     TextNotFoundError,
     UnsupportedStructureError,
 )
@@ -29,6 +33,9 @@ from .textmap import (
     range_hits_atomic,
     restore_markers,
 )
+
+if TYPE_CHECKING:
+    from .document import Document
 
 _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 _XML_NS = "http://www.w3.org/XML/1998/namespace"
@@ -616,9 +623,160 @@ def apply_insert_text_after(
 
 
 __all__ = [
+    "Paragraph",
     "ReplaceOutcome",
     "apply_delete_text",
     "apply_insert_text_after",
     "apply_insert_text_before",
     "apply_replace_text",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Fluent Paragraph object
+# ---------------------------------------------------------------------------
+
+
+class Paragraph:
+    """Fluent handle to a live paragraph inside a :class:`Document`.
+
+    Every method re-resolves the underlying ``<w:p>`` node through the
+    document's anchor manifest. If the ID has been invalidated (for example by
+    ``replace_para``), the next call raises :class:`ParagraphNotFoundError`.
+    """
+
+    __slots__ = ("id", "_doc_ref")
+
+    def __init__(self, doc: Document, target_id: str) -> None:
+        self.id = target_id
+        self._doc_ref = weakref.ref(doc)
+
+    # ---------------------------------------------------------------- helpers
+
+    def _doc(self) -> Document:
+        doc = self._doc_ref()
+        if doc is None:
+            raise ParagraphNotFoundError(target_id=self.id)
+        return doc
+
+    def _element(self) -> etree._Element:
+        return self._doc()._manifest.resolve(self.id)
+
+    def __repr__(self) -> str:
+        return f"Paragraph(id={self.id!r})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Paragraph):
+            return NotImplemented
+        return self.id == other.id and self._doc_ref() is other._doc_ref()
+
+    def __hash__(self) -> int:
+        return hash((self.id, id(self._doc_ref())))
+
+    # ------------------------------------------------------------------ read
+
+    def read(self, *, raw: bool = False) -> str:
+        return self._doc().get_paragraph(self.id, raw=raw)
+
+    # -------------------------------------------------------------- paragraph
+
+    def insert_para_before(
+        self,
+        items: Sequence[str | ContentItem],
+        *,
+        raw: bool = False,
+        normalize_text: bool = False,
+    ) -> list[Paragraph]:
+        return self._doc().insert_para_before(
+            self.id, items, raw=raw, normalize_text=normalize_text
+        )
+
+    def insert_para_after(
+        self,
+        items: Sequence[str | ContentItem],
+        *,
+        raw: bool = False,
+        normalize_text: bool = False,
+    ) -> list[Paragraph]:
+        return self._doc().insert_para_after(
+            self.id, items, raw=raw, normalize_text=normalize_text
+        )
+
+    def replace_para(
+        self,
+        items: Sequence[str | ContentItem],
+        *,
+        raw: bool = False,
+        normalize_text: bool = False,
+    ) -> list[Paragraph]:
+        return self._doc().replace_para(
+            self.id, items, raw=raw, normalize_text=normalize_text
+        )
+
+    def delete_para(self) -> None:
+        self._doc().delete_para([self.id])
+
+    # --------------------------------------------------------- text (in-place)
+
+    def replace_text(
+        self,
+        find: str | Selector,
+        replacement: str,
+        *,
+        occurrence: int | None = None,
+        normalize_text: bool = False,
+    ) -> None:
+        element = self._element()
+        selector = Selector.coerce(find)
+        text = _maybe_normalize(replacement, normalize_text)
+        apply_replace_text(
+            element, selector, text, occurrence, target_id=self.id
+        )
+
+    def delete_text(
+        self,
+        find: str | Selector,
+        *,
+        occurrence: int | None = None,
+    ) -> None:
+        element = self._element()
+        selector = Selector.coerce(find)
+        apply_delete_text(element, selector, occurrence, target_id=self.id)
+
+    def insert_text_before(
+        self,
+        find: str | Selector,
+        text: str,
+        *,
+        occurrence: int | None = None,
+        normalize_text: bool = False,
+    ) -> None:
+        element = self._element()
+        selector = Selector.coerce(find)
+        payload = _maybe_normalize(text, normalize_text)
+        apply_insert_text_before(
+            element, selector, payload, occurrence, target_id=self.id
+        )
+
+    def insert_text_after(
+        self,
+        find: str | Selector,
+        text: str,
+        *,
+        occurrence: int | None = None,
+        normalize_text: bool = False,
+    ) -> None:
+        element = self._element()
+        selector = Selector.coerce(find)
+        payload = _maybe_normalize(text, normalize_text)
+        apply_insert_text_after(
+            element, selector, payload, occurrence, target_id=self.id
+        )
+
+
+def _maybe_normalize(text: str, enabled: bool) -> str:
+    if not enabled:
+        return text
+    from .content import normalize
+
+    return normalize(text)

@@ -12,7 +12,7 @@ import re
 import shutil
 import tempfile
 import zipfile
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
@@ -21,6 +21,7 @@ from lxml import etree
 
 from . import _ooxml
 from ._models import (
+    ContentItem,
     Pagination,
     ParagraphInfo,
     ParagraphListResult,
@@ -31,15 +32,25 @@ from ._models import (
     Selector,
     TextMatch,
 )
+from ._paragraph_ops import (
+    build_new_paragraph,
+    detect_protected_structures,
+    expand_visible_items,
+    parse_raw_paragraphs,
+)
 from .anchors import AnchorManifest
+from .content import ContentResolverConfig, normalize, resolve_items
 from .errors import (
     AmbiguousTextMatchError,
     DocumentNotFoundError,
+    InvalidContentError,
     InvalidDocumentError,
     InvalidPatternError,
     ParagraphNotFoundError,
     TextNotFoundError,
+    ValidationError,
 )
+from .paragraph import Paragraph
 
 MAIN_PART: str = "word/document.xml"
 
@@ -76,6 +87,7 @@ class Document:
         temp_dir: Path,
         tree: etree._ElementTree,
         fingerprint: _SourceFingerprint,
+        content_config: ContentResolverConfig | None = None,
     ) -> None:
         self._source_path = source_path
         self._temp_dir = temp_dir
@@ -85,12 +97,26 @@ class Document:
         self._manifest = AnchorManifest(self._root)
         self._index_cache: _Index | None = None
         self._closed = False
+        self._content_config: ContentResolverConfig = (
+            content_config
+            if content_config is not None
+            else ContentResolverConfig(
+                workspace_root=temp_dir,
+                input_roots=(source_path.parent.resolve(),),
+            )
+        )
+        self._last_op_warnings: tuple[str, ...] = ()
         self._build_index()
 
     # ------------------------------------------------------------------ open
 
     @classmethod
-    def open(cls, source_path: str | os.PathLike[str]) -> Document:
+    def open(
+        cls,
+        source_path: str | os.PathLike[str],
+        *,
+        content_config: ContentResolverConfig | None = None,
+    ) -> Document:
         path = Path(source_path)
         if not path.is_file():
             raise DocumentNotFoundError(path=str(path))
@@ -107,6 +133,7 @@ class Document:
             temp_dir=temp_dir,
             tree=tree,
             fingerprint=fingerprint,
+            content_config=content_config,
         )
 
     # ----------------------------------------------------------- lifecycle
@@ -338,6 +365,163 @@ class Document:
             occurrence=occurrence,
             total_matches=total,
         )
+
+    # -------------------------------------------------------- paragraph write
+
+    def insert_para_before(
+        self,
+        target_id: str,
+        items: Sequence[str | ContentItem],
+        *,
+        raw: bool = False,
+        normalize_text: bool = False,
+    ) -> list[Paragraph]:
+        """Insert ``items`` immediately before the paragraph identified by
+        ``target_id``. Returns the new paragraphs in document order."""
+        anchor = self._manifest.resolve(target_id)
+        new_elements = self._expand_items_to_elements(
+            anchor=anchor, items=items, raw=raw, normalize_text=normalize_text
+        )
+        parent = anchor.getparent()
+        assert parent is not None
+        insert_index = parent.index(anchor)
+        for element in new_elements:
+            parent.insert(insert_index, element)
+            insert_index += 1
+        return self._register_new_paragraphs(new_elements)
+
+    def insert_para_after(
+        self,
+        target_id: str,
+        items: Sequence[str | ContentItem],
+        *,
+        raw: bool = False,
+        normalize_text: bool = False,
+    ) -> list[Paragraph]:
+        """Insert ``items`` immediately after the paragraph identified by
+        ``target_id``. Uses a moving-cursor algorithm to preserve item order."""
+        anchor = self._manifest.resolve(target_id)
+        new_elements = self._expand_items_to_elements(
+            anchor=anchor, items=items, raw=raw, normalize_text=normalize_text
+        )
+        cursor = anchor
+        for element in new_elements:
+            cursor.addnext(element)
+            cursor = element
+        return self._register_new_paragraphs(new_elements)
+
+    def replace_para(
+        self,
+        target_id: str,
+        items: Sequence[str | ContentItem],
+        *,
+        raw: bool = False,
+        normalize_text: bool = False,
+    ) -> list[Paragraph]:
+        """Replace the paragraph identified by ``target_id`` with ``items``.
+
+        Runs a wholesale replacement even when it would strip protected
+        structures; every detected structure is recorded in ``warnings`` on
+        the document (readable via ``last_operation_warnings``)."""
+        target = self._manifest.resolve(target_id)
+        warnings = detect_protected_structures(target)
+        new_elements = self._expand_items_to_elements(
+            anchor=target, items=items, raw=raw, normalize_text=normalize_text
+        )
+        parent = target.getparent()
+        assert parent is not None
+        insert_index = parent.index(target)
+        for element in new_elements:
+            parent.insert(insert_index, element)
+            insert_index += 1
+        parent.remove(target)
+        self._manifest.invalidate(target_id)
+        result = self._register_new_paragraphs(new_elements)
+        self._last_op_warnings = warnings
+        return result
+
+    def delete_para(self, target_ids: Sequence[str]) -> None:
+        """Delete the paragraphs identified by ``target_ids``.
+
+        Fails fast when the collection is empty, contains duplicates, or names
+        an unknown ID. Nodes are removed in reverse document order."""
+        ids = list(target_ids)
+        checks = ("nonempty", "unique", "resolvable")
+        if not ids:
+            raise ValidationError(
+                stage="prevalidation", checks=checks, failed_check="nonempty"
+            )
+        if len(set(ids)) != len(ids):
+            raise ValidationError(
+                stage="prevalidation", checks=checks, failed_check="unique"
+            )
+        resolved: list[etree._Element] = [self._manifest.resolve(tid) for tid in ids]
+
+        # Order by document position (identity match against iter_editable_paragraphs).
+        position_by_id: dict[int, int] = {}
+        for pos, (node, _loc, _style, _paraid) in enumerate(
+            _ooxml.iter_editable_paragraphs(self._root)
+        ):
+            position_by_id[id(node)] = pos
+        pairs = sorted(
+            zip(ids, resolved, strict=True),
+            key=lambda pair: position_by_id[id(pair[1])],
+            reverse=True,
+        )
+        for tid, element in pairs:
+            parent = element.getparent()
+            assert parent is not None
+            parent.remove(element)
+            self._manifest.invalidate(tid)
+        self._invalidate_index()
+        self._last_op_warnings = ()
+
+    def get_paragraph_object(self, paragraph_id: str) -> Paragraph:
+        """Return a fluent :class:`Paragraph` handle bound to ``paragraph_id``."""
+        # Force validation of the ID before handing out a handle.
+        self._get_record(paragraph_id)
+        return Paragraph(self, paragraph_id)
+
+    @property
+    def last_operation_warnings(self) -> tuple[str, ...]:
+        """Warnings recorded by the most recent write operation."""
+        return self._last_op_warnings
+
+    # ------------------------------------------------------ paragraph helpers
+
+    def _expand_items_to_elements(
+        self,
+        *,
+        anchor: etree._Element,
+        items: Sequence[str | ContentItem],
+        raw: bool,
+        normalize_text: bool,
+    ) -> list[etree._Element]:
+        coerced = tuple(ContentItem.of(item) for item in items)
+        if not coerced:
+            raise InvalidContentError(raw=raw, reason="items must be non-empty")
+        resolved = resolve_items(coerced, raw=raw, config=self._content_config)
+        if raw:
+            new_elements: list[etree._Element] = []
+            for item in resolved:
+                fragment = item.paragraphs[0]
+                new_elements.extend(parse_raw_paragraphs(fragment))
+            return new_elements
+        texts = expand_visible_items(resolved)
+        if normalize_text:
+            texts = [normalize(text) for text in texts]
+        return [build_new_paragraph(anchor, text) for text in texts]
+
+    def _register_new_paragraphs(
+        self, elements: Sequence[etree._Element]
+    ) -> list[Paragraph]:
+        handles: list[Paragraph] = []
+        for element in elements:
+            new_id = self._manifest.allocate()
+            self._manifest.bind(new_id, element)
+            handles.append(Paragraph(self, new_id))
+        self._invalidate_index()
+        return handles
 
     # ------------------------------------------------------------- helpers
 

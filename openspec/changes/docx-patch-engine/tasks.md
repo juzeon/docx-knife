@@ -28,13 +28,13 @@
 
 ## 4. Paragraph operations and fluent API
 
-- [ ] 4.1 Implement visible-mode item expansion, CRLF/CR normalization, single-break `w:br`, multi-break paragraph boundaries, `xml:space`, and anchor `w:pPr`/first ordinary `w:rPr` inheritance.
-- [ ] 4.2 Implement ordered `insert_para_before` and moving-cursor `insert_para_after`, assigning manifest IDs in final document order.
-- [ ] 4.3 Implement one-to-many `replace_para` with old-ID invalidation, detected-structure warnings, and ordered replacement IDs.
-- [ ] 4.4 Implement duplicate-free multi-target `delete_para` with complete prevalidation, reverse-document-order removal, and manifest synchronization.
-- [ ] 4.5 Implement raw fragment parsing through a namespace-safe wrapper, require one or more top-level WordprocessingML `w:p` nodes, preserve supplied internals/order, and reject mixed modes.
-- [ ] 4.6 Implement document-level paragraph methods and fluent `Paragraph` methods, returning live `Paragraph` objects that can be chained immediately.
-- [ ] 4.7 Add real-DOCX tests for before/after order, item expansion, replacement/deletion, formatting inheritance, warning capture, raw round trips, invalid fragments, tables, and chained anchors.
+- [x] 4.1 Implement visible-mode item expansion, CRLF/CR normalization, single-break `w:br`, multi-break paragraph boundaries, `xml:space`, and anchor `w:pPr`/first ordinary `w:rPr` inheritance.
+- [x] 4.2 Implement ordered `insert_para_before` and moving-cursor `insert_para_after`, assigning manifest IDs in final document order.
+- [x] 4.3 Implement one-to-many `replace_para` with old-ID invalidation, detected-structure warnings, and ordered replacement IDs.
+- [x] 4.4 Implement duplicate-free multi-target `delete_para` with complete prevalidation, reverse-document-order removal, and manifest synchronization.
+- [x] 4.5 Implement raw fragment parsing through a namespace-safe wrapper, require one or more top-level WordprocessingML `w:p` nodes, preserve supplied internals/order, and reject mixed modes.
+- [x] 4.6 Implement document-level paragraph methods and fluent `Paragraph` methods, returning live `Paragraph` objects that can be chained immediately.
+- [x] 4.7 Add real-DOCX tests for before/after order, item expansion, replacement/deletion, formatting inheritance, warning capture, raw round trips, invalid fragments, tables, and chained anchors.
 
 ## 5. Content resolution and normalization
 
