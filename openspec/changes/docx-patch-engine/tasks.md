@@ -1,9 +1,9 @@
 ## 1. Package foundation and contracts
 
-- [ ] 1.1 Inspect the reference implementation and repository constraints, then choose and document the supported Python versions, build backend, package layout, and mature dependency set.
-- [ ] 1.2 Create the installable package, test layout, formatter, linter, type checker, pytest configuration, 60-second default timeout, and branch-coverage enforcement at 85%.
-- [ ] 1.3 Define the minimal public exports, immutable query/location models, edit/result models, selectors, content sources, save result, and JSON schema validation boundaries.
-- [ ] 1.4 Implement the complete `DocxKnifeError` hierarchy with bounded messages, serializable fields, cause preservation, and contract tests for every public exception.
+- [x] 1.1 Inspect the reference implementation and repository constraints, then choose and document the supported Python versions, build backend, package layout, and mature dependency set.
+- [x] 1.2 Create the installable package, test layout, formatter, linter, type checker, pytest configuration, 60-second default timeout, and branch-coverage enforcement at 85%.
+- [x] 1.3 Define the minimal public exports, immutable query/location models, edit/result models, selectors, content sources, save result, and JSON schema validation boundaries.
+- [x] 1.4 Implement the complete `DocxKnifeError` hierarchy with bounded messages, serializable fields, cause preservation, and contract tests for every public exception.
 
 ## 2. Document loading, discovery, and anchors
 
