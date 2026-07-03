@@ -336,16 +336,14 @@ def test_raw_fragment_with_wrong_root_rolls_back_batch(tmp_path: Path) -> None:
         # Fragment root is <w:tbl>, not <w:p>; parse succeeds but the paragraph-
         # ops layer rejects it.
         bad_fragment = (
-            '<w:tbl xmlns:w='
+            "<w:tbl xmlns:w="
             '"http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
             "<w:tr><w:tc><w:p><w:r><w:t>oops</w:t></w:r></w:p></w:tc></w:tr>"
             "</w:tbl>"
         )
         with pytest.raises(BatchOperationError) as excinfo:
             doc.batch_edit([
-                EditOperation.insert_para_after(
-                    op_id="ok", target_id=ids[0], items=["fine"]
-                ),
+                EditOperation.insert_para_after(op_id="ok", target_id=ids[0], items=["fine"]),
                 EditOperation.insert_para_after(
                     op_id="bad",
                     target_id=ids[0],
