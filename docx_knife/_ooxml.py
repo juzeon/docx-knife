@@ -284,6 +284,36 @@ def visible_text_plain(paragraph: etree._Element) -> str:
     return "".join(parts)
 
 
+def visible_char_node_ordinals(paragraph: etree._Element) -> list[int]:
+    """Return per-character node ordinals aligned to :func:`visible_text_plain`.
+
+    Each contributing ``<w:t>``, ``<w:tab>``, ``<w:br>``, and ``<w:cr>``
+    node receives a monotonically increasing ordinal (document order within
+    the paragraph). The returned list contains one entry per visible
+    character so callers can determine which node ``paragraph[i]`` came
+    from and whether a range crosses node boundaries.
+    """
+    ordinals: list[int] = []
+    counter = 0
+    for elem in paragraph.iter():
+        tag = elem.tag
+        if tag not in (T_TAG, TAB_TAG, BR_TAG, CR_TAG):
+            continue
+        if _under_deleted(elem, paragraph):
+            continue
+        if tag == T_TAG:
+            text = elem.text or ""
+            if not text:
+                continue
+            for _ in text:
+                ordinals.append(counter)
+            counter += 1
+        else:
+            ordinals.append(counter)
+            counter += 1
+    return ordinals
+
+
 def serialize_paragraph(paragraph: etree._Element) -> str:
     """Serialize ``paragraph`` including its start/end tags with no declaration."""
     raw = etree.tostring(paragraph, encoding="unicode", with_tail=False)
@@ -323,5 +353,6 @@ __all__ = [
     "iter_editable_paragraphs",
     "qn",
     "serialize_paragraph",
+    "visible_char_node_ordinals",
     "visible_text_plain",
 ]

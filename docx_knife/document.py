@@ -1,7 +1,7 @@
 """Document lifecycle and Phase-2 read/query APIs.
 
-Only the open half of the document lifecycle is implemented in Phase 2.
-``save()`` is intentionally absent; Phase 7 owns the persistence surface.
+Persistence (``save``) is provided by the sibling :mod:`docx_knife.save`
+module; the ``Document`` class only exposes the public surface here.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from ._models import (
     ParagraphLocation,
     ParagraphMatchInfo,
     ParagraphSearchResult,
+    SaveResult,
     Selector,
     TextMatch,
 )
@@ -126,6 +127,13 @@ class Document:
         tb: TracebackType | None,
     ) -> None:
         self.close()
+
+    def save(self, output_path: str | os.PathLike[str]) -> SaveResult:
+        if self._closed:
+            raise RuntimeError("document is closed")
+        from .save import save_document
+
+        return save_document(self, output_path)
 
     # --------------------------------------------------------------- state
 
@@ -273,14 +281,28 @@ class Document:
             ranges = matcher.find_all(haystack)
             if not ranges:
                 continue
+            if raw:
+                ordinals: list[int] = []
+            else:
+                ordinals = _ooxml.visible_char_node_ordinals(record.node)
             for char_range in ranges:
-                # TODO(phase3): replace node_range/crosses_nodes with TextMap results.
+                start, end = char_range
+                if raw or not ordinals:
+                    node_range = char_range
+                    crosses = False
+                else:
+                    start_ordinal = ordinals[start] if start < len(ordinals) else ordinals[-1]
+                    end_ordinal = (
+                        ordinals[end - 1] if 0 < end <= len(ordinals) else ordinals[-1]
+                    )
+                    node_range = (start_ordinal, end_ordinal)
+                    crosses = start_ordinal != end_ordinal
                 all_matches.append(
                     TextMatch(
                         paragraph_id=record.target_id,
                         char_range=char_range,
-                        node_range=char_range,
-                        crosses_nodes=False,
+                        node_range=node_range,
+                        crosses_nodes=crosses,
                         total_matches=0,
                     )
                 )

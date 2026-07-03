@@ -17,14 +17,14 @@
 
 ## 3. TextMap and paragraph-internal editing
 
-- [ ] 3.1 Implement final-view visible-text extraction across `w:t` and runs, including `w:ins`, excluding `w:del`, and mapping each character to node, offset, global offset, and run.
-- [ ] 3.2 Implement reversible projection for tab, line/page/column breaks and carriage returns, literal `[[DOCX:` escaping, atomic ranges, and invalid-marker rejection.
-- [ ] 3.3 Record intersected fields, hyperlinks, bookmarks, revisions, and other protected structures in match metadata and codify the allow/preserve/reject capability matrix with real OOXML fixtures.
-- [ ] 3.4 Implement literal and regex selector compilation, invalid-pattern errors, zero-length-match policy, unique-match enforcement, indexed occurrence, and `occurrence=-1` right-to-left execution.
-- [ ] 3.5 Implement `replace_text`, `delete_text`, `insert_text_before`, and `insert_text_after` across nodes/runs, rebuilding TextMap after each operation.
-- [ ] 3.6 Preserve unmatched nodes and formatting, inherit insertion/replacement run properties, restore reserved nodes, and remove only text/run nodes that are structurally safe to remove.
-- [ ] 3.7 Reject raw paragraph-internal edits and protected/atomic boundary crossings without destructive reconstruction.
-- [ ] 3.8 Add unit and property tests for randomized run splitting, cross-run regex/literal matches, every occurrence mode, marker round trips, formatting inheritance, sequential edits, and protected structures.
+- [x] 3.1 Implement final-view visible-text extraction across `w:t` and runs, including `w:ins`, excluding `w:del`, and mapping each character to node, offset, global offset, and run.
+- [x] 3.2 Implement reversible projection for tab, line/page/column breaks and carriage returns, literal `[[DOCX:` escaping, atomic ranges, and invalid-marker rejection.
+- [x] 3.3 Record intersected fields, hyperlinks, bookmarks, revisions, and other protected structures in match metadata and codify the allow/preserve/reject capability matrix with real OOXML fixtures.
+- [x] 3.4 Implement literal and regex selector compilation, invalid-pattern errors, zero-length-match policy, unique-match enforcement, indexed occurrence, and `occurrence=-1` right-to-left execution.
+- [x] 3.5 Implement `replace_text`, `delete_text`, `insert_text_before`, and `insert_text_after` across nodes/runs, rebuilding TextMap after each operation.
+- [x] 3.6 Preserve unmatched nodes and formatting, inherit insertion/replacement run properties, restore reserved nodes, and remove only text/run nodes that are structurally safe to remove.
+- [x] 3.7 Reject raw paragraph-internal edits and protected/atomic boundary crossings without destructive reconstruction.
+- [x] 3.8 Add unit and property tests for randomized run splitting, cross-run regex/literal matches, every occurrence mode, marker round trips, formatting inheritance, sequential edits, and protected structures.
 
 ## 4. Paragraph operations and fluent API
 
@@ -58,11 +58,11 @@
 
 ## 7. Safe package persistence
 
-- [ ] 7.1 Implement save-time source fingerprint comparison, including explicit behavior when source and output paths are identical and across repeated saves.
-- [ ] 7.2 Implement atomic replacement of `<output>.bak` from the current destination before overwrite, with nullable backup results for new destinations.
-- [ ] 7.3 Serialize `word/document.xml` without pretty printing and rebuild a temporary DOCX while preserving all other ZIP entry names, metadata, order where supported, and uncompressed content.
-- [ ] 7.4 Reopen the temporary ZIP, parse the main XML, run package checks, and atomically replace the destination while preserving the original destination on failure.
-- [ ] 7.5 Add integration tests for source drift, same-path save, new and repeated destination saves, backup replacement, injected write/rename failures, ZIP/XML revalidation, and unchanged non-main entries.
+- [x] 7.1 Implement save-time source fingerprint comparison, including explicit behavior when source and output paths are identical and across repeated saves.
+- [x] 7.2 Implement atomic replacement of `<output>.bak` from the current destination before overwrite, with nullable backup results for new destinations.
+- [x] 7.3 Serialize `word/document.xml` without pretty printing and rebuild a temporary DOCX while preserving all other ZIP entry names, metadata, order where supported, and uncompressed content.
+- [x] 7.4 Reopen the temporary ZIP, parse the main XML, run package checks, and atomically replace the destination while preserving the original destination on failure.
+- [x] 7.5 Add integration tests for source drift, same-path save, new and repeated destination saves, backup replacement, injected write/rename failures, ZIP/XML revalidation, and unchanged non-main entries.
 
 ## 8. Public delivery and quality gates
 
