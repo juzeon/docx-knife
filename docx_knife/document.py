@@ -21,7 +21,9 @@ from lxml import etree
 
 from . import _ooxml
 from ._models import (
+    AnyEditOperation,
     ContentItem,
+    EditResult,
     Pagination,
     ParagraphInfo,
     ParagraphListResult,
@@ -106,6 +108,7 @@ class Document:
             )
         )
         self._last_op_warnings: tuple[str, ...] = ()
+        self._change_log: list[dict[str, object]] = []
         self._build_index()
 
     # ------------------------------------------------------------------ open
@@ -481,6 +484,27 @@ class Document:
         # Force validation of the ID before handing out a handle.
         self._get_record(paragraph_id)
         return Paragraph(self, paragraph_id)
+
+    def batch_edit(
+        self,
+        operations: Sequence[AnyEditOperation],
+        *,
+        normalize_text: bool = False,
+        envelope: dict[str, object] | None = None,
+    ) -> EditResult:
+        """Execute ``operations`` atomically. See :mod:`docx_knife.batch`."""
+        from .batch import BatchExecutor
+
+        return BatchExecutor(
+            self,
+            operations,
+            normalize_text=normalize_text,
+            envelope=envelope,
+        ).run()
+
+    def change_log(self) -> list[dict[str, object]]:
+        """Return a shallow copy of the current change-log entries."""
+        return list(self._change_log)
 
     @property
     def last_operation_warnings(self) -> tuple[str, ...]:

@@ -48,13 +48,13 @@
 
 ## 6. Batch transaction, validation, and audit
 
-- [ ] 6.1 Implement whole-batch schema/ID/occurrence/content/raw prevalidation and deterministic normalization before mutation.
-- [ ] 6.2 Implement the complete target-set conflict matrix, same-direction insertion merging, and dependency ordering for insertion, replacement, deletion, and paragraph-internal operations.
-- [ ] 6.3 Implement transaction snapshots for DOM, anchor manifest, ID allocator, and change log with exact restoration on execution or precommit failure.
-- [ ] 6.4 Implement ordered batch execution and success-only `EditResult`/`OperationResult`, including new IDs, warnings, bounded previews, and input-order result correlation.
-- [ ] 6.5 Implement precommit checks for consumed operations, target outcomes, paragraph-count deltas, reparsable XML, logged warnings/results, and canonical equivalence of untouched structures.
-- [ ] 6.6 Implement bounded success audit events and a single failed-batch event with expected/actual state, original cause, and `rolled_back=true`.
-- [ ] 6.7 Add conflict-matrix, full-prevalidation, mid-batch failure, validation failure, state-restoration, audit-boundary, and canonical-fidelity tests, including property tests for failed-batch invariance.
+- [x] 6.1 Implement whole-batch schema/ID/occurrence/content/raw prevalidation and deterministic normalization before mutation.
+- [x] 6.2 Implement the complete target-set conflict matrix, same-direction insertion merging, and dependency ordering for insertion, replacement, deletion, and paragraph-internal operations.
+- [x] 6.3 Implement transaction snapshots for DOM, anchor manifest, ID allocator, and change log with exact restoration on execution or precommit failure.
+- [x] 6.4 Implement ordered batch execution and success-only `EditResult`/`OperationResult`, including new IDs, warnings, bounded previews, and input-order result correlation.
+- [x] 6.5 Implement precommit checks for consumed operations, target outcomes, paragraph-count deltas, reparsable XML, logged warnings/results, and canonical equivalence of untouched structures.
+- [x] 6.6 Implement bounded success audit events and a single failed-batch event with expected/actual state, original cause, and `rolled_back=true`.
+- [x] 6.7 Add conflict-matrix, full-prevalidation, mid-batch failure, validation failure, state-restoration, audit-boundary, and canonical-fidelity tests, including property tests for failed-batch invariance.
 
 ## 7. Safe package persistence
 
