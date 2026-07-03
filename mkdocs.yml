@@ -1,5 +1,6 @@
 site_name: docx-knife
 site_description: AI-safe DOCX patch engine with stable paragraph anchors.
+docs_dir: skills/docx-knife/docs
 strict: true
 
 theme:
