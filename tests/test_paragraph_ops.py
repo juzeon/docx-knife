@@ -169,9 +169,7 @@ def test_raw_replace_para_round_trip(tmp_path: Path) -> None:
     with Document.open(src) as doc:
         a_id = doc.list_paragraphs().paragraphs[0].id
         raw_xml = doc.get_paragraph(a_id, raw=True)
-        fragment = raw_xml + (
-            f'<w:p xmlns:w="{_W}"><w:r><w:t>Second raw.</w:t></w:r></w:p>'
-        )
+        fragment = raw_xml + (f'<w:p xmlns:w="{_W}"><w:r><w:t>Second raw.</w:t></w:r></w:p>')
         new = doc.replace_para(a_id, [fragment], raw=True)
         assert len(new) == 2
         assert [new[0].read(), new[1].read()] == ["A", "Second raw."]
@@ -210,9 +208,7 @@ def test_insert_after_table_paragraph_stays_in_cell(tmp_path: Path) -> None:
     with Document.open(src) as doc:
         # Find the paragraph inside the table cell.
         infos = doc.list_paragraphs().paragraphs
-        cell_info = next(
-            info for info in infos if info.location.table_context is not None
-        )
+        cell_info = next(info for info in infos if info.location.table_context is not None)
         [new] = doc.insert_para_after(cell_info.id, ["cell-second"])
         # Both the original and the new paragraph must share the same <w:tc> parent.
         original = doc._manifest.resolve(cell_info.id)

@@ -80,7 +80,7 @@ class _Index:
 
 
 class Document:
-    """A DOCX file opened for read-only query in Phase 2."""
+    """A DOCX opened for querying and editing via the docx-knife patch engine."""
 
     def __init__(
         self,
@@ -120,6 +120,7 @@ class Document:
         *,
         content_config: ContentResolverConfig | None = None,
     ) -> Document:
+        """Open ``source_path`` as a DOCX and return a live :class:`Document`."""
         path = Path(source_path)
         if not path.is_file():
             raise DocumentNotFoundError(path=str(path))
@@ -142,6 +143,7 @@ class Document:
     # ----------------------------------------------------------- lifecycle
 
     def close(self) -> None:
+        """Release the private temp workspace. Idempotent."""
         if self._closed:
             return
         self._closed = True
@@ -159,6 +161,7 @@ class Document:
         self.close()
 
     def save(self, output_path: str | os.PathLike[str]) -> SaveResult:
+        """Save the current DOM to ``output_path`` with source-drift check and ``.bak`` backup."""
         if self._closed:
             raise RuntimeError("document is closed")
         from .save import save_document
@@ -180,9 +183,7 @@ class Document:
     def _build_index(self) -> None:
         records: list[_ParagraphRecord] = []
         id_to_record: dict[str, _ParagraphRecord] = {}
-        for node, location, style_id, w14_para_id in _ooxml.iter_editable_paragraphs(
-            self._root
-        ):
+        for node, location, style_id, w14_para_id in _ooxml.iter_editable_paragraphs(self._root):
             existing = self._manifest.id_for_node(node)
             target_id = existing if existing is not None else self._manifest.allocate()
             if existing is None:
@@ -210,6 +211,7 @@ class Document:
     # -------------------------------------------------------------- reads
 
     def paragraph_count(self) -> int:
+        """Return the number of editable paragraphs currently in the document."""
         return len(self._ensure_index().records)
 
     def list_paragraphs(
@@ -219,24 +221,23 @@ class Document:
         max_chars: int = 80,
         raw: bool = False,
     ) -> ParagraphListResult:
+        """Return a paginated slice of paragraphs with truncated previews."""
         records = self._ensure_index().records
         total = len(records)
         window = _window_slice(records, start=start, limit=limit)
-        infos = tuple(
-            _record_to_info(record, max_chars=max_chars, raw=raw) for record in window
-        )
+        infos = tuple(_record_to_info(record, max_chars=max_chars, raw=raw) for record in window)
         return ParagraphListResult(
             paragraphs=infos,
-            pagination=Pagination(
-                start=start, limit=limit, returned=len(infos), total=total
-            ),
+            pagination=Pagination(start=start, limit=limit, returned=len(infos), total=total),
         )
 
     def get_paragraph(self, paragraph_id: str, raw: bool = False) -> str:
+        """Return the full text (or raw XML) of one paragraph."""
         record = self._get_record(paragraph_id)
         return _record_content(record, raw=raw)
 
     def get_visible_text(self, raw: bool = False) -> str:
+        """Return the concatenated visible text of every paragraph, in document order."""
         records = self._ensure_index().records
         if raw:
             return "".join(_ooxml.serialize_paragraph(rec.node) for rec in records)
@@ -253,6 +254,7 @@ class Document:
         max_chars: int = 0,
         raw: bool = False,
     ) -> ParagraphSearchResult:
+        """Search paragraphs by literal or regex ``pattern`` and return hits with ranges."""
         matcher = _compile_matcher(pattern, regex=regex)
         records = self._ensure_index().records
         window = _window_slice(records, start=start, limit=limit)
@@ -290,6 +292,10 @@ class Document:
         paragraph_id: str | None = None,
         raw: bool = False,
     ) -> int:
+        """Return the total number of matches for ``pattern``.
+
+        If ``paragraph_id`` is set, count within that paragraph only.
+        """
         matcher = _compile_matcher(pattern, regex=regex)
         total = 0
         for record in self._search_records(paragraph_id):
@@ -304,6 +310,7 @@ class Document:
         paragraph_id: str | None = None,
         raw: bool = False,
     ) -> TextMatch | list[TextMatch] | None:
+        """Locate matches for ``pattern`` and return a ``TextMatch`` (single, list, or ``None``)."""
         matcher = _compile_matcher(pattern, regex=regex)
         all_matches: list[TextMatch] = []
         for record in self._search_records(paragraph_id):
@@ -322,9 +329,7 @@ class Document:
                     crosses = False
                 else:
                     start_ordinal = ordinals[start] if start < len(ordinals) else ordinals[-1]
-                    end_ordinal = (
-                        ordinals[end - 1] if 0 < end <= len(ordinals) else ordinals[-1]
-                    )
+                    end_ordinal = ordinals[end - 1] if 0 < end <= len(ordinals) else ordinals[-1]
                     node_range = (start_ordinal, end_ordinal)
                     crosses = start_ordinal != end_ordinal
                 all_matches.append(
@@ -451,13 +456,9 @@ class Document:
         ids = list(target_ids)
         checks = ("nonempty", "unique", "resolvable")
         if not ids:
-            raise ValidationError(
-                stage="prevalidation", checks=checks, failed_check="nonempty"
-            )
+            raise ValidationError(stage="prevalidation", checks=checks, failed_check="nonempty")
         if len(set(ids)) != len(ids):
-            raise ValidationError(
-                stage="prevalidation", checks=checks, failed_check="unique"
-            )
+            raise ValidationError(stage="prevalidation", checks=checks, failed_check="unique")
         resolved: list[etree._Element] = [self._manifest.resolve(tid) for tid in ids]
 
         # Order by document position (identity match against iter_editable_paragraphs).
@@ -536,9 +537,7 @@ class Document:
             texts = [normalize(text) for text in texts]
         return [build_new_paragraph(anchor, text) for text in texts]
 
-    def _register_new_paragraphs(
-        self, elements: Sequence[etree._Element]
-    ) -> list[Paragraph]:
+    def _register_new_paragraphs(self, elements: Sequence[etree._Element]) -> list[Paragraph]:
         handles: list[Paragraph] = []
         for element in elements:
             new_id = self._manifest.allocate()
@@ -622,9 +621,7 @@ def _record_content(record: _ParagraphRecord, *, raw: bool) -> str:
     return _ooxml.visible_text_plain(record.node)
 
 
-def _record_to_info(
-    record: _ParagraphRecord, *, max_chars: int, raw: bool
-) -> ParagraphInfo:
+def _record_to_info(record: _ParagraphRecord, *, max_chars: int, raw: bool) -> ParagraphInfo:
     content = _record_content(record, raw=raw)
     truncated = _truncate(content, max_chars)
     text = None if raw else truncated

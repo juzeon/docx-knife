@@ -132,9 +132,7 @@ class BatchExecutor:
         results_by_seq: dict[int, OperationResult] = {}
         pending_log: list[dict[str, Any]] = []
         try:
-            expected_delta = self._execute_plan(
-                groups, order, results_by_seq, pending_log
-            )
+            expected_delta = self._execute_plan(groups, order, results_by_seq, pending_log)
             self._precommit_validate(snapshot, pre_ids, groups, expected_delta)
         except BaseException as exc:
             self._rollback(snapshot)
@@ -225,8 +223,7 @@ class BatchExecutor:
                         operation_index=idx,
                         op_id=op.op_id,
                         reason=(
-                            f"{op.op}: exactly one of content_literal or "
-                            "content_ref is required"
+                            f"{op.op}: exactly one of content_literal or content_ref is required"
                         ),
                     )
                 self._validate_text_op(idx, op, manifest_ids)
@@ -325,17 +322,12 @@ class BatchExecutor:
         for anchor_id, g in groups.items():
             if g.delete is not None and g.replace is not None:
                 blame = (
-                    g.replace
-                    if g.replace.sequence_index > g.delete.sequence_index
-                    else g.delete
+                    g.replace if g.replace.sequence_index > g.delete.sequence_index else g.delete
                 )
                 raise BatchOperationError(
                     operation_index=blame.sequence_index,
                     op_id=blame.op.op_id,
-                    reason=(
-                        f"conflict: replace_para and delete_para both target "
-                        f"{anchor_id!r}"
-                    ),
+                    reason=(f"conflict: replace_para and delete_para both target {anchor_id!r}"),
                 )
             if g.delete is not None and g.inserts_after:
                 blame = g.inserts_after[0]
@@ -378,8 +370,7 @@ class BatchExecutor:
         # Rebuild the manifest and rebind IDs by document order.
         new_manifest = AnchorManifest(new_root)
         ordered_new_nodes = [
-            node
-            for node, _loc, _style, _para_id in _ooxml.iter_editable_paragraphs(new_root)
+            node for node, _loc, _style, _para_id in _ooxml.iter_editable_paragraphs(new_root)
         ]
         if len(ordered_new_nodes) != len(snapshot.ids_in_order):  # pragma: no cover
             raise ValidationError(
@@ -387,9 +378,7 @@ class BatchExecutor:
                 checks=("ids_in_order_length",),
                 failed_check="ids_in_order_length",
             )
-        for target_id, node in zip(
-            snapshot.ids_in_order, ordered_new_nodes, strict=True
-        ):
+        for target_id, node in zip(snapshot.ids_in_order, ordered_new_nodes, strict=True):
             new_manifest.bind(target_id, node)
         new_manifest._next_counter = snapshot.next_counter
         doc._manifest = new_manifest
@@ -473,9 +462,7 @@ class BatchExecutor:
 
             # 3. Text ops in input order.
             for norm in sorted(g.text_ops, key=lambda n: n.sequence_index):
-                results_by_seq[norm.sequence_index], entry = self._exec_text_op(
-                    norm, anchor_id
-                )
+                results_by_seq[norm.sequence_index], entry = self._exec_text_op(norm, anchor_id)
                 pending_log.append(entry)
 
             # 4. replace_para (after all insertions on the same anchor).
@@ -494,9 +481,7 @@ class BatchExecutor:
                     seen_deletes.add(seq)
                     del_op = g.delete.op
                     assert isinstance(del_op, DeletePara)
-                    previews = [
-                        _preview(doc.get_paragraph(tid)) for tid in del_op.target_ids
-                    ]
+                    previews = [_preview(doc.get_paragraph(tid)) for tid in del_op.target_ids]
                     doc.delete_para(list(del_op.target_ids))
                     results_by_seq[seq] = OperationResult(
                         op_id=del_op.op_id,
@@ -531,9 +516,7 @@ class BatchExecutor:
                 elem, selector, replacement, occurrence, target_id=anchor_id
             )
         elif isinstance(op, DeleteText):
-            outcome = apply_delete_text(
-                elem, selector, occurrence, target_id=anchor_id
-            )
+            outcome = apply_delete_text(elem, selector, occurrence, target_id=anchor_id)
         elif isinstance(op, InsertTextBefore):
             text = self._resolve_text_content(op)
             outcome = apply_insert_text_before(
@@ -541,9 +524,7 @@ class BatchExecutor:
             )
         elif isinstance(op, InsertTextAfter):
             text = self._resolve_text_content(op)
-            outcome = apply_insert_text_after(
-                elem, selector, text, occurrence, target_id=anchor_id
-            )
+            outcome = apply_insert_text_after(elem, selector, text, occurrence, target_id=anchor_id)
         else:  # pragma: no cover - defensive
             raise BatchOperationError(
                 operation_index=norm.sequence_index,
@@ -575,9 +556,7 @@ class BatchExecutor:
     ) -> str:
         from .content import resolve_items
 
-        item = ContentItem(
-            content_literal=op.content_literal, content_ref=op.content_ref
-        )
+        item = ContentItem(content_literal=op.content_literal, content_ref=op.content_ref)
         resolved = resolve_items((item,), raw=False, config=self._doc._content_config)
         # Text ops accept a single string; a literal containing paragraph
         # breaks joins with \n so it round-trips as line breaks inside one

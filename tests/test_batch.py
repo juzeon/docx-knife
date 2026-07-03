@@ -104,12 +104,8 @@ def test_two_replace_para_on_same_id_rejected(tmp_path: Path) -> None:
         ids = _ids(doc)
         with pytest.raises(BatchOperationError) as excinfo:
             doc.batch_edit([
-                EditOperation.replace_para(
-                    op_id="a", target_id=ids[0], items=["X"]
-                ),
-                EditOperation.replace_para(
-                    op_id="b", target_id=ids[0], items=["Y"]
-                ),
+                EditOperation.replace_para(op_id="a", target_id=ids[0], items=["X"]),
+                EditOperation.replace_para(op_id="b", target_id=ids[0], items=["Y"]),
             ])
         assert excinfo.value.op_id == "b"
         assert _texts(doc) == ["A", "B", "C", "D"]
@@ -121,9 +117,7 @@ def test_replace_and_delete_on_same_id_rejected(tmp_path: Path) -> None:
         ids = _ids(doc)
         with pytest.raises(BatchOperationError):
             doc.batch_edit([
-                EditOperation.replace_para(
-                    op_id="a", target_id=ids[0], items=["X"]
-                ),
+                EditOperation.replace_para(op_id="a", target_id=ids[0], items=["X"]),
                 EditOperation.delete_para(op_id="b", target_ids=[ids[0]]),
             ])
 
@@ -134,9 +128,7 @@ def test_delete_and_after_insert_on_same_id_rejected(tmp_path: Path) -> None:
         ids = _ids(doc)
         with pytest.raises(BatchOperationError):
             doc.batch_edit([
-                EditOperation.insert_para_after(
-                    op_id="a", target_id=ids[0], items=["X"]
-                ),
+                EditOperation.insert_para_after(op_id="a", target_id=ids[0], items=["X"]),
                 EditOperation.delete_para(op_id="b", target_ids=[ids[0]]),
             ])
 
@@ -146,9 +138,7 @@ def test_delete_and_before_insert_on_same_id_allowed(tmp_path: Path) -> None:
     with Document.open(src) as doc:
         ids = _ids(doc)
         result = doc.batch_edit([
-            EditOperation.insert_para_before(
-                op_id="a", target_id=ids[0], items=["Z1", "Z2"]
-            ),
+            EditOperation.insert_para_before(op_id="a", target_id=ids[0], items=["Z1", "Z2"]),
             EditOperation.delete_para(op_id="b", target_ids=[ids[0]]),
         ])
         assert [r.status for r in result.results] == ["success", "success"]
@@ -163,12 +153,8 @@ def test_replace_and_after_insert_on_same_id_allowed(tmp_path: Path) -> None:
         # Insertion executes first on the ORIGINAL anchor position, then
         # replacement swaps A itself.
         doc.batch_edit([
-            EditOperation.insert_para_after(
-                op_id="a", target_id=ids[0], items=["Y"]
-            ),
-            EditOperation.replace_para(
-                op_id="b", target_id=ids[0], items=["X"]
-            ),
+            EditOperation.insert_para_after(op_id="a", target_id=ids[0], items=["Y"]),
+            EditOperation.replace_para(op_id="b", target_id=ids[0], items=["X"]),
         ])
         assert _texts(doc) == ["X", "Y", "B", "C", "D"]
 
@@ -178,12 +164,8 @@ def test_two_after_inserts_on_same_id_merge_items_in_order(tmp_path: Path) -> No
     with Document.open(src) as doc:
         ids = _ids(doc)
         doc.batch_edit([
-            EditOperation.insert_para_after(
-                op_id="a", target_id=ids[0], items=["X", "Y"]
-            ),
-            EditOperation.insert_para_after(
-                op_id="b", target_id=ids[0], items=["Z"]
-            ),
+            EditOperation.insert_para_after(op_id="a", target_id=ids[0], items=["X", "Y"]),
+            EditOperation.insert_para_after(op_id="b", target_id=ids[0], items=["Z"]),
         ])
         assert _texts(doc) == ["A", "X", "Y", "Z", "B", "C", "D"]
 
@@ -193,12 +175,8 @@ def test_two_before_inserts_on_same_id_merge_items_in_order(tmp_path: Path) -> N
     with Document.open(src) as doc:
         ids = _ids(doc)
         doc.batch_edit([
-            EditOperation.insert_para_before(
-                op_id="a", target_id=ids[3], items=["X"]
-            ),
-            EditOperation.insert_para_before(
-                op_id="b", target_id=ids[3], items=["Y", "Z"]
-            ),
+            EditOperation.insert_para_before(op_id="a", target_id=ids[3], items=["X"]),
+            EditOperation.insert_para_before(op_id="b", target_id=ids[3], items=["Y", "Z"]),
         ])
         assert _texts(doc) == ["A", "B", "C", "X", "Y", "Z", "D"]
 
@@ -213,12 +191,8 @@ def test_prevalidation_blocks_all_ops_when_later_op_invalid(tmp_path: Path) -> N
         before = _root_bytes(doc)
         with pytest.raises(BatchOperationError) as excinfo:
             doc.batch_edit([
-                EditOperation.insert_para_after(
-                    op_id="ok", target_id=ids[0], items=["X"]
-                ),
-                EditOperation.replace_para(
-                    op_id="bad", target_id="p_ZZZZZZ", items=["Y"]
-                ),
+                EditOperation.insert_para_after(op_id="ok", target_id=ids[0], items=["X"]),
+                EditOperation.replace_para(op_id="bad", target_id="p_ZZZZZZ", items=["Y"]),
             ])
         assert excinfo.value.operation_index == 1
         assert excinfo.value.op_id == "bad"
@@ -271,9 +245,7 @@ def test_mid_batch_failure_rolls_back_dom_manifest_and_log(tmp_path: Path) -> No
         before_ids = doc._manifest.ordered_ids()
         with pytest.raises(BatchOperationError) as excinfo:
             doc.batch_edit([
-                EditOperation.insert_para_after(
-                    op_id="op1", target_id=ids[0], items=["X"]
-                ),
+                EditOperation.insert_para_after(op_id="op1", target_id=ids[0], items=["X"]),
                 EditOperation.replace_text(
                     op_id="op2",
                     paragraph_id=ids[1],
@@ -321,9 +293,7 @@ def test_content_ref_failure_rolls_back(tmp_path: Path) -> None:
         assert _root_bytes(doc) == before_xml
 
 
-def test_validation_failure_rolls_back(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_validation_failure_rolls_back(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     src = _fixtures.build_abcd(tmp_path / "abcd.docx")
 
     def _corrupt(
@@ -345,9 +315,7 @@ def test_validation_failure_rolls_back(
         before_xml = _root_bytes(doc)
         with pytest.raises(BatchOperationError) as excinfo:
             doc.batch_edit([
-                EditOperation.insert_para_after(
-                    op_id="op1", target_id=ids[0], items=["X"]
-                ),
+                EditOperation.insert_para_after(op_id="op1", target_id=ids[0], items=["X"]),
             ])
         assert type(excinfo.value.__cause__).__name__ == "ValidationError"
         assert _root_bytes(doc) == before_xml
@@ -368,10 +336,7 @@ def test_untouched_fidelity_catches_untracked_mutation(
     ) -> int:
         delta = original(self, groups, order, results_by_seq, pending_log)
         # Mutate an untouched paragraph after execution but before validation.
-        untouched_id = next(
-            tid for tid in self._doc._manifest.ordered_ids()
-            if tid not in groups
-        )
+        untouched_id = next(tid for tid in self._doc._manifest.ordered_ids() if tid not in groups)
         node = self._doc._manifest.resolve(untouched_id)
         # Corrupt a <w:t> inside this paragraph.
         for t in node.iter("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t"):
@@ -385,9 +350,7 @@ def test_untouched_fidelity_catches_untracked_mutation(
         before_xml = _root_bytes(doc)
         with pytest.raises(BatchOperationError) as excinfo:
             doc.batch_edit([
-                EditOperation.insert_para_after(
-                    op_id="op1", target_id=ids[0], items=["X"]
-                ),
+                EditOperation.insert_para_after(op_id="op1", target_id=ids[0], items=["X"]),
             ])
         assert type(excinfo.value.__cause__).__name__ == "ValidationError"
         assert _root_bytes(doc) == before_xml
@@ -402,9 +365,7 @@ def test_change_log_success_previews_are_truncated(tmp_path: Path) -> None:
         ids = _ids(doc)
         long_text = "X" * 500
         doc.batch_edit([
-            EditOperation.insert_para_after(
-                op_id="op1", target_id=ids[0], items=[long_text]
-            ),
+            EditOperation.insert_para_after(op_id="op1", target_id=ids[0], items=[long_text]),
         ])
         log = doc.change_log()
         assert len(log) == 1
@@ -423,9 +384,7 @@ def test_failed_batch_records_single_audit_event(tmp_path: Path) -> None:
         ids = _ids(doc)
         with pytest.raises(BatchOperationError):
             doc.batch_edit([
-                EditOperation.insert_para_after(
-                    op_id="op1", target_id=ids[0], items=["X"]
-                ),
+                EditOperation.insert_para_after(op_id="op1", target_id=ids[0], items=["X"]),
                 EditOperation.replace_text(
                     op_id="op2",
                     paragraph_id=ids[1],

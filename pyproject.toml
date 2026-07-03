@@ -36,6 +36,9 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.10",
     "lxml-stubs>=0.5.1",
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.26",
 ]
 
 [build-system]
@@ -48,7 +51,10 @@ packages = ["docx_knife"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 timeout = 60
-addopts = "-ra"
+addopts = "-ra -m \"not benchmark\""
+markers = [
+    "benchmark: performance benchmarks (deselect with -m 'not benchmark')",
+]
 
 [tool.coverage.run]
 branch = true

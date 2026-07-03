@@ -264,9 +264,7 @@ def build_text_map(paragraph: etree._Element) -> TextMap:
                     for ch, src in zip(escaped, origin, strict=True):
                         record_char(ch, elem, src, run_ref, None)
                     for rel_start, rel_end in escape_spans:
-                        atomic_ranges.append(
-                            (base_offset + rel_start, base_offset + rel_end)
-                        )
+                        atomic_ranges.append((base_offset + rel_start, base_offset + rel_end))
                 return
             if tag == _TAB:
                 literal = _MARKER_TO_LITERAL["TAB"]

@@ -151,9 +151,7 @@ def _row_index_in_table(tbl: etree._Element, target_tr: etree._Element) -> int:
     raise ValueError("target_tr not found in tbl")
 
 
-def _cell_indices(
-    tr: etree._Element, target_tc: etree._Element
-) -> tuple[int, int]:
+def _cell_indices(tr: etree._Element, target_tc: etree._Element) -> tuple[int, int]:
     """Return ``(physical_cell_index, logical_column_index)`` for ``target_tc``."""
     physical = 0
     logical = _grid_before(tr)
@@ -188,9 +186,7 @@ def _table_nesting_depth(tbl: etree._Element) -> int:
     return depth
 
 
-def _table_context(
-    paragraph: etree._Element, table_indices: dict[str, int]
-) -> TableContext | None:
+def _table_context(paragraph: etree._Element, table_indices: dict[str, int]) -> TableContext | None:
     tc = _innermost_ancestor(paragraph, TC_TAG)
     if tc is None:
         return None

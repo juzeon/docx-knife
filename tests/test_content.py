@@ -89,9 +89,7 @@ def test_resolve_items_returns_literal_paragraphs(tmp_path: Path) -> None:
     config = _config(tmp_path)
     items = (ContentItem(content_literal="hello"),)
     result = resolve_items(items, raw=False, config=config)
-    assert result == (
-        ResolvedItem(paragraphs=("hello",), raw=False, source_kind="literal"),
-    )
+    assert result == (ResolvedItem(paragraphs=("hello",), raw=False, source_kind="literal"),)
 
 
 def test_resolve_items_raw_mode_wraps_single_string(tmp_path: Path) -> None:
@@ -112,9 +110,7 @@ def test_resolve_items_raw_mode_wraps_single_string(tmp_path: Path) -> None:
 def test_jsonpath_valid_single_match(tmp_path: Path) -> None:
     inputs = tmp_path / "inputs"
     inputs.mkdir()
-    (inputs / "data.json").write_text(
-        json.dumps({"party": {"name": "Acme"}}), encoding="utf-8"
-    )
+    (inputs / "data.json").write_text(json.dumps({"party": {"name": "Acme"}}), encoding="utf-8")
     config = ContentResolverConfig(workspace_root=tmp_path, input_roots=(inputs,))
     ref = ContentSourceJsonPath(source="inputs/data.json", path="$.party.name")
     item = ContentItem(content_ref=ref)
@@ -130,12 +126,8 @@ def test_jsonpath_scalar_coercion(tmp_path: Path) -> None:
     config = ContentResolverConfig(workspace_root=tmp_path, input_roots=(inputs,))
     result = resolve_items(
         (
-            ContentItem(
-                content_ref=ContentSourceJsonPath(source="inputs/d.json", path="$.n")
-            ),
-            ContentItem(
-                content_ref=ContentSourceJsonPath(source="inputs/d.json", path="$.b")
-            ),
+            ContentItem(content_ref=ContentSourceJsonPath(source="inputs/d.json", path="$.n")),
+            ContentItem(content_ref=ContentSourceJsonPath(source="inputs/d.json", path="$.b")),
         ),
         raw=False,
         config=config,
@@ -171,9 +163,7 @@ def test_jsonpath_multi_match(tmp_path: Path) -> None:
 def test_jsonpath_non_scalar_rejected(tmp_path: Path) -> None:
     inputs = tmp_path / "inputs"
     inputs.mkdir()
-    (inputs / "d.json").write_text(
-        json.dumps({"party": {"name": "Acme"}}), encoding="utf-8"
-    )
+    (inputs / "d.json").write_text(json.dumps({"party": {"name": "Acme"}}), encoding="utf-8")
     config = ContentResolverConfig(workspace_root=tmp_path, input_roots=(inputs,))
     ref = ContentSourceJsonPath(source="inputs/d.json", path="$.party")
     with pytest.raises(InvalidContentError) as excinfo:
@@ -412,9 +402,7 @@ def test_command_cwd_outside_workspace(tmp_path: Path) -> None:
             cwd=str(outside),
         )
         with pytest.raises(InvalidContentError) as excinfo:
-            resolve_items(
-                (ContentItem(content_ref=ref),), raw=False, config=config
-            )
+            resolve_items((ContentItem(content_ref=ref),), raw=False, config=config)
         assert "escapes workspace" in excinfo.value.reason
     finally:
         outside.rmdir()
@@ -437,9 +425,7 @@ def test_command_env_allowlist_only(tmp_path: Path) -> None:
             ),
             timeout_seconds=10.0,
         )
-        result = resolve_items(
-            (ContentItem(content_ref=ref),), raw=False, config=config
-        )
+        result = resolve_items((ContentItem(content_ref=ref),), raw=False, config=config)
     finally:
         os.environ.pop("DOCX_KNIFE_TEST_SECRET", None)
     assert result[0].paragraphs == ("missing",)
@@ -488,11 +474,7 @@ def test_expand_visible_identical_across_sources(tmp_path: Path) -> None:
     items = (
         ContentItem(content_literal=payload),
         ContentItem(content_ref=ContentSourceFile(path="inputs/text.txt")),
-        ContentItem(
-            content_ref=ContentSourceJsonPath(
-                source="inputs/data.json", path="$.v"
-            )
-        ),
+        ContentItem(content_ref=ContentSourceJsonPath(source="inputs/data.json", path="$.v")),
         ContentItem(
             content_ref=ContentSourceCommand(
                 argv=(

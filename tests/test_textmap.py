@@ -27,10 +27,7 @@ def _p(xml: str) -> etree._Element:
 
 
 def test_adjacent_runs_form_continuous_text() -> None:
-    p = _p(
-        "<w:r><w:t>违约</w:t></w:r>"
-        "<w:r><w:rPr><w:b/></w:rPr><w:t>责任</w:t></w:r>"
-    )
+    p = _p("<w:r><w:t>违约</w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>责任</w:t></w:r>")
     m = build_text_map(p)
     assert m.text == "违约责任"
     # Every char maps to a run; first two share one run, last two share another.
@@ -48,12 +45,16 @@ def test_tab_break_cr_projection() -> None:
     )
     m = build_text_map(p)
     assert m.text == (
-        "a[[DOCX:TAB]][[DOCX:LINE_BREAK]][[DOCX:PAGE_BREAK]]"
-        "[[DOCX:COLUMN_BREAK]][[DOCX:CR]]b"
+        "a[[DOCX:TAB]][[DOCX:LINE_BREAK]][[DOCX:PAGE_BREAK]][[DOCX:COLUMN_BREAK]][[DOCX:CR]]b"
     )
     # Every marker span should be recorded as atomic.
-    tokens = ["[[DOCX:TAB]]", "[[DOCX:LINE_BREAK]]", "[[DOCX:PAGE_BREAK]]",
-              "[[DOCX:COLUMN_BREAK]]", "[[DOCX:CR]]"]
+    tokens = [
+        "[[DOCX:TAB]]",
+        "[[DOCX:LINE_BREAK]]",
+        "[[DOCX:PAGE_BREAK]]",
+        "[[DOCX:COLUMN_BREAK]]",
+        "[[DOCX:CR]]",
+    ]
     covered = 0
     for tok in tokens:
         idx = m.text.index(tok, covered)
@@ -101,9 +102,7 @@ def test_structures_in_range_reports_hyperlink() -> None:
 
 def test_bookmark_point_markers_do_not_pollute() -> None:
     p = _p(
-        '<w:bookmarkStart w:id="0" w:name="b"/>'
-        "<w:r><w:t>xy</w:t></w:r>"
-        '<w:bookmarkEnd w:id="0"/>'
+        '<w:bookmarkStart w:id="0" w:name="b"/><w:r><w:t>xy</w:t></w:r><w:bookmarkEnd w:id="0"/>'
     )
     m = build_text_map(p)
     assert m.text == "xy"
@@ -197,9 +196,7 @@ def test_select_matches_shapes() -> None:
 
 
 def test_node_ordinals_track_document_order() -> None:
-    p = _p(
-        "<w:r><w:t>ab</w:t><w:tab/><w:t>cd</w:t></w:r>"
-    )
+    p = _p("<w:r><w:t>ab</w:t><w:tab/><w:t>cd</w:t></w:r>")
     m = build_text_map(p)
     ords = m.node_ordinals
     # Three contributing nodes (two <w:t>, one <w:tab>) — ordinals 0,1,2.
@@ -226,9 +223,7 @@ def test_random_run_split_preserves_text() -> None:
     def inner(pieces: list[str]) -> None:
         # Avoid the escape-triggering '[' at start of a piece for simpler assertion.
         pieces = [p.replace("[", "x") for p in pieces]
-        runs = "".join(
-            f"<w:r><w:t>{_xml_escape(piece)}</w:t></w:r>" for piece in pieces
-        )
+        runs = "".join(f"<w:r><w:t>{_xml_escape(piece)}</w:t></w:r>" for piece in pieces)
         p = _p(runs)
         m = build_text_map(p)
         assert m.text == "".join(pieces)
@@ -238,8 +233,4 @@ def test_random_run_split_preserves_text() -> None:
 
 
 def _xml_escape(text: str) -> str:
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

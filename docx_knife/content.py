@@ -90,10 +90,7 @@ def resolve_items(
         if has_lit == has_ref:
             raise InvalidContentError(
                 raw=raw,
-                reason=(
-                    f"item[{idx}] must provide exactly one of content_literal "
-                    "or content_ref"
-                ),
+                reason=(f"item[{idx}] must provide exactly one of content_literal or content_ref"),
             )
     json_cache: dict[Path, Any] = {}
     return tuple(
@@ -126,9 +123,7 @@ def _resolve_one(
             text = _resolve_command(ref, raw=raw, config=config)
             kind = "command"
         else:  # pragma: no cover - exhaustive
-            raise InvalidContentError(
-                raw=raw, reason=f"item[{idx}]: unknown content_ref type"
-            )
+            raise InvalidContentError(raw=raw, reason=f"item[{idx}]: unknown content_ref type")
     if raw:
         paragraphs: tuple[str, ...] = (text,)
     else:
@@ -145,9 +140,7 @@ def _resolve_within_roots(
     try:
         resolved = candidate.resolve(strict=True)
     except FileNotFoundError as exc:
-        raise InvalidContentError(
-            raw=raw, reason=f"{kind} source not found: {path_str}"
-        ) from exc
+        raise InvalidContentError(raw=raw, reason=f"{kind} source not found: {path_str}") from exc
     for root in config.input_roots:
         try:
             resolved_root = root.resolve(strict=True)
@@ -168,9 +161,7 @@ def _resolve_jsonpath(
     config: ContentResolverConfig,
     cache: dict[Path, Any],
 ) -> str:
-    source_path = _resolve_within_roots(
-        config, ref.source, raw=raw, kind="jsonpath"
-    )
+    source_path = _resolve_within_roots(config, ref.source, raw=raw, kind="jsonpath")
     if source_path not in cache:
         try:
             cache[source_path] = json.loads(source_path.read_text(encoding="utf-8"))
@@ -196,9 +187,7 @@ def _resolve_jsonpath(
     if not matches:
         raise InvalidContentError(
             raw=raw,
-            reason=(
-                f"jsonpath returned no value: path={ref.path}, source={ref.source}"
-            ),
+            reason=(f"jsonpath returned no value: path={ref.path}, source={ref.source}"),
         )
     if len(matches) > 1:
         raise InvalidContentError(
@@ -215,16 +204,11 @@ def _resolve_jsonpath(
         return str(value)
     raise InvalidContentError(
         raw=raw,
-        reason=(
-            f"jsonpath value must be scalar, got {type(value).__name__}: "
-            f"path={ref.path}"
-        ),
+        reason=(f"jsonpath value must be scalar, got {type(value).__name__}: path={ref.path}"),
     )
 
 
-def _resolve_file(
-    ref: ContentSourceFile, *, raw: bool, config: ContentResolverConfig
-) -> str:
+def _resolve_file(ref: ContentSourceFile, *, raw: bool, config: ContentResolverConfig) -> str:
     path = _resolve_within_roots(config, ref.path, raw=raw, kind="file")
     try:
         return path.read_text(encoding=ref.encoding)
@@ -234,14 +218,10 @@ def _resolve_file(
             reason=f"file {ref.path} could not be decoded as {ref.encoding}",
         ) from exc
     except LookupError as exc:
-        raise InvalidContentError(
-            raw=raw, reason=f"unknown encoding {ref.encoding!r}"
-        ) from exc
+        raise InvalidContentError(raw=raw, reason=f"unknown encoding {ref.encoding!r}") from exc
 
 
-def _resolve_command(
-    ref: ContentSourceCommand, *, raw: bool, config: ContentResolverConfig
-) -> str:
+def _resolve_command(ref: ContentSourceCommand, *, raw: bool, config: ContentResolverConfig) -> str:
     argv = list(ref.argv)
     if not argv or not all(isinstance(arg, str) and arg != "" for arg in argv):
         raise InvalidContentError(
@@ -249,9 +229,7 @@ def _resolve_command(
         )
     cwd = _resolve_command_cwd(ref, raw=raw, config=config)
     env: dict[str, str] = {
-        key: os.environ[key]
-        for key in config.command_env_allowlist
-        if key in os.environ
+        key: os.environ[key] for key in config.command_env_allowlist if key in os.environ
     }
     if ref.env is not None:
         env.update({str(k): str(v) for k, v in ref.env.items()})
@@ -268,19 +246,14 @@ def _resolve_command(
     except subprocess.TimeoutExpired as exc:
         raise InvalidContentError(
             raw=raw,
-            reason=(
-                f"command timed out after {ref.timeout_seconds}s: "
-                f"argv={_argv_preview(argv)}"
-            ),
+            reason=(f"command timed out after {ref.timeout_seconds}s: argv={_argv_preview(argv)}"),
         ) from exc
     except FileNotFoundError as exc:
         raise InvalidContentError(
             raw=raw, reason=f"command executable not found: {argv[0]!r}"
         ) from exc
     if completed.returncode != 0:
-        stderr_preview = completed.stderr.decode("utf-8", errors="replace")[
-            :_STDERR_PREVIEW
-        ]
+        stderr_preview = completed.stderr.decode("utf-8", errors="replace")[:_STDERR_PREVIEW]
         raise InvalidContentError(
             raw=raw,
             reason=(
@@ -293,8 +266,7 @@ def _resolve_command(
         raise InvalidContentError(
             raw=raw,
             reason=(
-                f"command stdout exceeds {_MAX_STDOUT_BYTES} bytes: "
-                f"argv={_argv_preview(argv)}"
+                f"command stdout exceeds {_MAX_STDOUT_BYTES} bytes: argv={_argv_preview(argv)}"
             ),
         )
     try:
@@ -302,9 +274,7 @@ def _resolve_command(
     except UnicodeDecodeError as exc:
         raise InvalidContentError(
             raw=raw,
-            reason=(
-                f"command stdout is not valid UTF-8: argv={_argv_preview(argv)}"
-            ),
+            reason=(f"command stdout is not valid UTF-8: argv={_argv_preview(argv)}"),
         ) from exc
     if text.endswith("\n"):
         text = text[:-1]
@@ -323,13 +293,9 @@ def _resolve_command_cwd(
     try:
         resolved = candidate.resolve(strict=True)
     except FileNotFoundError as exc:
-        raise InvalidContentError(
-            raw=raw, reason=f"command cwd not found: {ref.cwd}"
-        ) from exc
+        raise InvalidContentError(raw=raw, reason=f"command cwd not found: {ref.cwd}") from exc
     if not resolved.is_relative_to(workspace):
-        raise InvalidContentError(
-            raw=raw, reason=f"command cwd escapes workspace: {ref.cwd}"
-        )
+        raise InvalidContentError(raw=raw, reason=f"command cwd escapes workspace: {ref.cwd}")
     return resolved
 
 
@@ -436,9 +402,7 @@ def _convert_punct(text: str, protected: list[tuple[int, int]]) -> str:
 def _needs_cjk_latin_space(left: str, right: str) -> bool:
     latin_like_left = _is_ascii_letter(left) or _is_ascii_digit(left)
     latin_like_right = _is_ascii_letter(right) or _is_ascii_digit(right)
-    return (_is_cjk(left) and latin_like_right) or (
-        latin_like_left and _is_cjk(right)
-    )
+    return (_is_cjk(left) and latin_like_right) or (latin_like_left and _is_cjk(right))
 
 
 def _apply_spacing(text: str, protected: list[tuple[int, int]]) -> str:

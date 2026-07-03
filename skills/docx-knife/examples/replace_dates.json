@@ -1,0 +1,20 @@
+{
+  "operations": [
+    {
+      "op_id": "op_001",
+      "op": "replace_text",
+      "target_id": "p_000042",
+      "find": {"pattern": "30 天", "regex": false},
+      "occurrence": 0,
+      "content_literal": "60 天"
+    },
+    {
+      "op_id": "op_002",
+      "op": "replace_text",
+      "target_id": "p_000042",
+      "find": {"pattern": "30 天", "regex": false},
+      "occurrence": 0,
+      "content_literal": "60 天"
+    }
+  ]
+}

@@ -66,6 +66,8 @@ class DocxKnifeError(_Serializable, Exception):
 
 
 class DocumentNotFoundError(DocxKnifeError):
+    """Raised by :meth:`Document.open` when the source path is missing."""
+
     code: ClassVar[str] = "document_not_found"
     __public_fields__: ClassVar[tuple[str, ...]] = ("path",)
 
@@ -75,6 +77,8 @@ class DocumentNotFoundError(DocxKnifeError):
 
 
 class InvalidDocumentError(DocxKnifeError):
+    """Raised when the source is not a valid DOCX (bad ZIP or unparseable XML)."""
+
     code: ClassVar[str] = "invalid_document"
     __public_fields__: ClassVar[tuple[str, ...]] = ("path", "reason")
 
@@ -85,6 +89,8 @@ class InvalidDocumentError(DocxKnifeError):
 
 
 class SourceChangedError(DocxKnifeError):
+    """Raised on save when the source file has been modified on disk since open."""
+
     code: ClassVar[str] = "source_changed"
     __public_fields__: ClassVar[tuple[str, ...]] = ("source_path",)
 
@@ -94,6 +100,8 @@ class SourceChangedError(DocxKnifeError):
 
 
 class ParagraphNotFoundError(DocxKnifeError):
+    """Raised when a paragraph ID is unknown or has been invalidated."""
+
     code: ClassVar[str] = "paragraph_not_found"
     __public_fields__: ClassVar[tuple[str, ...]] = ("target_id",)
 
@@ -103,6 +111,8 @@ class ParagraphNotFoundError(DocxKnifeError):
 
 
 class TextNotFoundError(DocxKnifeError):
+    """Raised when a selector has no match, or the requested occurrence is out of range."""
+
     code: ClassVar[str] = "text_not_found"
     __public_fields__: ClassVar[tuple[str, ...]] = (
         "target_id",
@@ -130,6 +140,8 @@ class TextNotFoundError(DocxKnifeError):
 
 
 class AmbiguousTextMatchError(DocxKnifeError):
+    """Raised when a selector without an ``occurrence`` matches more than once."""
+
     code: ClassVar[str] = "ambiguous_text_match"
     __public_fields__: ClassVar[tuple[str, ...]] = ("target_id", "selector", "total_matches")
 
@@ -150,6 +162,8 @@ class AmbiguousTextMatchError(DocxKnifeError):
 
 
 class InvalidPatternError(DocxKnifeError):
+    """Raised for an unusable literal (empty) or regex (compile error) selector."""
+
     code: ClassVar[str] = "invalid_pattern"
     __public_fields__: ClassVar[tuple[str, ...]] = ("pattern", "reason")
 
@@ -162,6 +176,8 @@ class InvalidPatternError(DocxKnifeError):
 
 
 class InvalidContentError(DocxKnifeError):
+    """Raised when supplied content or a content reference is malformed."""
+
     code: ClassVar[str] = "invalid_content"
     __public_fields__: ClassVar[tuple[str, ...]] = ("raw", "reason")
 
@@ -173,6 +189,8 @@ class InvalidContentError(DocxKnifeError):
 
 
 class UnsupportedStructureError(DocxKnifeError):
+    """Raised when a text match crosses protected or atomic structures."""
+
     code: ClassVar[str] = "unsupported_structure"
     __public_fields__: ClassVar[tuple[str, ...]] = (
         "target_id",
@@ -196,6 +214,8 @@ class UnsupportedStructureError(DocxKnifeError):
 
 
 class BatchOperationError(DocxKnifeError):
+    """Raised when a batch fails; the document has been rolled back."""
+
     code: ClassVar[str] = "batch_operation_error"
     __public_fields__: ClassVar[tuple[str, ...]] = (
         "operation_index",
@@ -242,6 +262,8 @@ def _rebuild_batch_error(
 
 
 class ValidationError(DocxKnifeError):
+    """Raised by schema, prevalidation, and precommit checks."""
+
     code: ClassVar[str] = "validation_error"
     __public_fields__: ClassVar[tuple[str, ...]] = ("stage", "checks", "failed_check")
 

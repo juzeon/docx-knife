@@ -1,0 +1,32 @@
+{
+  "operations": [
+    {
+      "op_id": "op_001",
+      "op": "insert_para_after",
+      "target_id": "p_000010",
+      "items": [
+        {"content_literal": "第一条：保密义务。"},
+        {"content_literal": "第二条：违约赔偿。"}
+      ]
+    },
+    {
+      "op_id": "op_002",
+      "op": "delete_para",
+      "target_ids": ["p_000015"]
+    },
+    {
+      "op_id": "op_003",
+      "op": "replace_para",
+      "target_id": "p_000020",
+      "items": [
+        {
+          "content_ref": {
+            "type": "jsonpath",
+            "source": "contract.json",
+            "path": "$.clauses.termination"
+          }
+        }
+      ]
+    }
+  ]
+}

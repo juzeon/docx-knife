@@ -66,9 +66,9 @@
 
 ## 8. Public delivery and quality gates
 
-- [ ] 8.1 Build end-to-end real-DOCX scenarios covering open, query, ID-targeted mixed edits, rollback, save, backup, reopen, and semantic/structural fidelity.
-- [ ] 8.2 Add performance benchmarks for large-document pagination, paragraph/table indexing, TextMap construction, snapshot cost, and batch editing; eliminate repeated whole-DOM scans.
-- [ ] 8.3 Configure CI for formatting, linting, type checking, unit/integration/property tests, branch coverage, and the supported Python-version matrix.
-- [ ] 8.4 Write API reference and quickstart documentation for every public type, operation, raw trusted-caller boundary, error, backup behavior, and lifecycle guarantee.
-- [ ] 8.5 Create the Agent Skill using only public APIs and a `raw=false` schema, enforcing returned IDs and preferring `content_ref` for long or deterministic data.
-- [ ] 8.6 Run all quality gates, build/install the distribution in a clean environment, execute the quickstart and Agent Skill smoke tests, and record benchmark baselines.
+- [x] 8.1 Build end-to-end real-DOCX scenarios covering open, query, ID-targeted mixed edits, rollback, save, backup, reopen, and semantic/structural fidelity.
+- [x] 8.2 Add performance benchmarks for large-document pagination, paragraph/table indexing, TextMap construction, snapshot cost, and batch editing; eliminate repeated whole-DOM scans.
+- [x] 8.3 Configure CI for formatting, linting, type checking, unit/integration/property tests, branch coverage, and the supported Python-version matrix.
+- [x] 8.4 Write API reference and quickstart documentation for every public type, operation, raw trusted-caller boundary, error, backup behavior, and lifecycle guarantee.
+- [x] 8.5 Create the Agent Skill using only public APIs and a `raw=false` schema, enforcing returned IDs and preferring `content_ref` for long or deterministic data.
+- [x] 8.6 Run all quality gates, build/install the distribution in a clean environment, execute the quickstart and Agent Skill smoke tests, and record benchmark baselines.

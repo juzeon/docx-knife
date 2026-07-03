@@ -74,9 +74,7 @@ def test_pagination_is_frozen() -> None:
 
 def test_selector_coerce_variants() -> None:
     assert Selector.coerce("foo") == Selector(pattern="foo", regex=False)
-    assert Selector.coerce({"pattern": "bar", "regex": True}) == Selector(
-        pattern="bar", regex=True
-    )
+    assert Selector.coerce({"pattern": "bar", "regex": True}) == Selector(pattern="bar", regex=True)
     original = Selector(pattern="baz", regex=False)
     assert Selector.coerce(original) is original
 
@@ -110,24 +108,22 @@ def test_content_item_rejects_dual_and_missing() -> None:
 
 
 def test_content_item_command_ref() -> None:
-    item = ContentItem.of(
-        {
-            "content_ref": {
-                "type": "command",
-                "argv": ["python", "render.py"],
-                "timeout_seconds": 5,
-            }
+    item = ContentItem.of({
+        "content_ref": {
+            "type": "command",
+            "argv": ["python", "render.py"],
+            "timeout_seconds": 5,
         }
-    )
+    })
     assert isinstance(item.content_ref, ContentSourceCommand)
     assert item.content_ref.argv == ("python", "render.py")
     assert item.content_ref.timeout_seconds == 5.0
 
 
 def test_content_item_jsonpath_ref() -> None:
-    item = ContentItem.of(
-        {"content_ref": {"type": "jsonpath", "source": "data.json", "path": "$.name"}}
-    )
+    item = ContentItem.of({
+        "content_ref": {"type": "jsonpath", "source": "data.json", "path": "$.name"}
+    })
     assert isinstance(item.content_ref, ContentSourceJsonPath)
 
 
@@ -183,19 +179,17 @@ def test_replace_text_requires_exactly_one_content() -> None:
 
 
 def test_validate_batch_accepts_minimal_payload() -> None:
-    validate_batch(
-        {
-            "operations": [
-                {
-                    "op_id": "op_1",
-                    "op": "replace_text",
-                    "target_id": "p_1",
-                    "find": "hello",
-                    "content_literal": "world",
-                }
-            ]
-        }
-    )
+    validate_batch({
+        "operations": [
+            {
+                "op_id": "op_1",
+                "op": "replace_text",
+                "target_id": "p_1",
+                "find": "hello",
+                "content_literal": "world",
+            }
+        ]
+    })
 
 
 def test_validate_batch_accepts_all_operation_kinds() -> None:
@@ -262,31 +256,27 @@ def test_validate_batch_accepts_all_operation_kinds() -> None:
 
 def test_validate_batch_rejects_unknown_op() -> None:
     with pytest.raises(ValidationError):
-        validate_batch(
-            {
-                "operations": [
-                    {"op_id": "op", "op": "reformat", "target_id": "p_1"},
-                ]
-            }
-        )
+        validate_batch({
+            "operations": [
+                {"op_id": "op", "op": "reformat", "target_id": "p_1"},
+            ]
+        })
 
 
 def test_validate_batch_rejects_dual_content() -> None:
     with pytest.raises(ValidationError):
-        validate_batch(
-            {
-                "operations": [
-                    {
-                        "op_id": "op",
-                        "op": "replace_text",
-                        "target_id": "p_1",
-                        "find": "x",
-                        "content_literal": "a",
-                        "content_ref": {"type": "file", "path": "b.txt"},
-                    }
-                ]
-            }
-        )
+        validate_batch({
+            "operations": [
+                {
+                    "op_id": "op",
+                    "op": "replace_text",
+                    "target_id": "p_1",
+                    "find": "x",
+                    "content_literal": "a",
+                    "content_ref": {"type": "file", "path": "b.txt"},
+                }
+            ]
+        })
 
 
 def test_validate_batch_rejects_empty_operations() -> None:
@@ -296,14 +286,12 @@ def test_validate_batch_rejects_empty_operations() -> None:
 
 def test_validate_batch_rejects_duplicate_target_ids_in_delete() -> None:
     with pytest.raises(ValidationError):
-        validate_batch(
-            {
-                "operations": [
-                    {
-                        "op_id": "op",
-                        "op": "delete_para",
-                        "target_ids": ["p_1", "p_1"],
-                    }
-                ]
-            }
-        )
+        validate_batch({
+            "operations": [
+                {
+                    "op_id": "op",
+                    "op": "delete_para",
+                    "target_ids": ["p_1", "p_1"],
+                }
+            ]
+        })

@@ -21,6 +21,8 @@ PartName = Literal["word/document.xml"]
 
 @dataclass(frozen=True, slots=True)
 class TableContext:
+    """Logical and physical position of a paragraph inside a table cell."""
+
     table_index: int
     row_index: int
     physical_cell_index: int
@@ -34,6 +36,8 @@ class TableContext:
 
 @dataclass(frozen=True, slots=True)
 class ParagraphLocation:
+    """Structural location of a paragraph within ``word/document.xml``."""
+
     part: PartName
     original_index: int
     global_ordinal: int
@@ -42,6 +46,8 @@ class ParagraphLocation:
 
 @dataclass(frozen=True, slots=True)
 class ParagraphInfo:
+    """Summary record for a paragraph returned by a query API."""
+
     id: str
     global_ordinal: int
     style_id: str | None
@@ -60,6 +66,8 @@ class ParagraphInfo:
 
 @dataclass(frozen=True, slots=True)
 class Pagination:
+    """Window metadata attached to paginated query results."""
+
     start: int
     limit: int | None
     returned: int
@@ -68,12 +76,16 @@ class Pagination:
 
 @dataclass(frozen=True, slots=True)
 class ParagraphListResult:
+    """Paginated result of ``Document.list_paragraphs``."""
+
     paragraphs: tuple[ParagraphInfo, ...]
     pagination: Pagination
 
 
 @dataclass(frozen=True, slots=True)
 class ParagraphMatchInfo:
+    """Paragraph summary bundled with the character ranges that matched."""
+
     paragraph: ParagraphInfo
     ranges: tuple[tuple[int, int], ...]
     match_count: int
@@ -81,6 +93,8 @@ class ParagraphMatchInfo:
 
 @dataclass(frozen=True, slots=True)
 class ParagraphSearchResult:
+    """Paginated result of ``Document.grep_paragraphs``."""
+
     matches: tuple[ParagraphMatchInfo, ...]
     total_matches: int
     pagination: Pagination
@@ -88,6 +102,8 @@ class ParagraphSearchResult:
 
 @dataclass(frozen=True, slots=True)
 class TextMatch:
+    """A resolved ``find_text`` hit anchored to a paragraph ID."""
+
     paragraph_id: str
     char_range: tuple[int, int]
     node_range: tuple[int, int]
@@ -98,6 +114,8 @@ class TextMatch:
 
 @dataclass(frozen=True, slots=True)
 class Selector:
+    """Literal-or-regex text selector shared by all text APIs."""
+
     pattern: str
     regex: bool = False
 
@@ -135,6 +153,8 @@ class Selector:
 
 @dataclass(frozen=True, slots=True)
 class ContentSourceJsonPath:
+    """JSONPath reference to a single scalar in a JSON file."""
+
     source: str
     path: str
     type: Literal["jsonpath"] = "jsonpath"
@@ -142,6 +162,8 @@ class ContentSourceJsonPath:
 
 @dataclass(frozen=True, slots=True)
 class ContentSourceFile:
+    """UTF-8 text file loaded from an allowed input root."""
+
     path: str
     encoding: str = "utf-8"
     type: Literal["file"] = "file"
@@ -149,6 +171,8 @@ class ContentSourceFile:
 
 @dataclass(frozen=True, slots=True)
 class ContentSourceCommand:
+    """External command whose stdout supplies the item's text."""
+
     argv: tuple[str, ...]
     timeout_seconds: float = 30.0
     env: Mapping[str, str] | None = None
@@ -161,6 +185,8 @@ ContentRef: TypeAlias = ContentSourceJsonPath | ContentSourceFile | ContentSourc
 
 @dataclass(frozen=True, slots=True)
 class ContentItem:
+    """One unit of content: either an inline literal or a reference."""
+
     content_literal: str | None = None
     content_ref: ContentRef | None = None
 
@@ -184,8 +210,7 @@ class ContentItem:
                 raise InvalidContentError(
                     raw=False,
                     reason=(
-                        "ContentItem mapping requires exactly one of "
-                        "content_literal or content_ref"
+                        "ContentItem mapping requires exactly one of content_literal or content_ref"
                     ),
                 )
             if has_literal:
@@ -281,6 +306,8 @@ def _coerce_items(
 
 @dataclass(frozen=True, slots=True)
 class InsertParaBefore:
+    """Insert one or more paragraphs immediately before a target paragraph."""
+
     op_id: str
     target_id: str
     items: tuple[ContentItem, ...]
@@ -290,6 +317,8 @@ class InsertParaBefore:
 
 @dataclass(frozen=True, slots=True)
 class InsertParaAfter:
+    """Insert one or more paragraphs immediately after a target paragraph."""
+
     op_id: str
     target_id: str
     items: tuple[ContentItem, ...]
@@ -299,6 +328,8 @@ class InsertParaAfter:
 
 @dataclass(frozen=True, slots=True)
 class ReplacePara:
+    """Replace one paragraph with one or more new paragraphs."""
+
     op_id: str
     target_id: str
     items: tuple[ContentItem, ...]
@@ -308,6 +339,8 @@ class ReplacePara:
 
 @dataclass(frozen=True, slots=True)
 class DeletePara:
+    """Delete one or more paragraphs referenced by ID."""
+
     op_id: str
     target_ids: tuple[str, ...]
     op: ClassVar[Literal["delete_para"]] = "delete_para"
@@ -316,13 +349,13 @@ class DeletePara:
         if not self.target_ids:
             raise InvalidContentError(raw=False, reason="delete_para requires target_ids")
         if len(set(self.target_ids)) != len(self.target_ids):
-            raise InvalidContentError(
-                raw=False, reason="delete_para target_ids must be unique"
-            )
+            raise InvalidContentError(raw=False, reason="delete_para target_ids must be unique")
 
 
 @dataclass(frozen=True, slots=True)
 class ReplaceText:
+    """Replace a text selector match inside a paragraph."""
+
     op_id: str
     target_id: str
     find: Selector
@@ -342,6 +375,8 @@ class ReplaceText:
 
 @dataclass(frozen=True, slots=True)
 class DeleteText:
+    """Delete a text selector match inside a paragraph."""
+
     op_id: str
     target_id: str
     find: Selector
@@ -351,6 +386,8 @@ class DeleteText:
 
 @dataclass(frozen=True, slots=True)
 class InsertTextBefore:
+    """Insert text immediately before a selector match inside a paragraph."""
+
     op_id: str
     target_id: str
     find: Selector
@@ -370,6 +407,8 @@ class InsertTextBefore:
 
 @dataclass(frozen=True, slots=True)
 class InsertTextAfter:
+    """Insert text immediately after a selector match inside a paragraph."""
+
     op_id: str
     target_id: str
     find: Selector
@@ -543,6 +582,8 @@ class EditOperation:
 
 @dataclass(frozen=True, slots=True)
 class OperationResult:
+    """Successful outcome of one operation, with warnings and previews."""
+
     op_id: str
     op: str
     status: Literal["success"] = "success"
@@ -556,11 +597,15 @@ class OperationResult:
 
 @dataclass(frozen=True, slots=True)
 class EditResult:
+    """Successful batch result. Failures are raised, never returned here."""
+
     results: tuple[OperationResult, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True, slots=True)
 class SaveResult:
+    """Result of ``Document.save``: output path, optional backup, warnings."""
+
     output_path: str
     backup_path: str | None
     warnings: tuple[str, ...] = ()

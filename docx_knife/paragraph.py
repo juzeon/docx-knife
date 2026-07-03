@@ -125,9 +125,7 @@ def _append_marker_child(run: etree._Element, marker: str) -> None:
         node.set(_TYPE, attr_val)
 
 
-def _build_replacement_run(
-    text: str, rpr_template: etree._Element | None
-) -> etree._Element | None:
+def _build_replacement_run(text: str, rpr_template: etree._Element | None) -> etree._Element | None:
     """Build a single ``<w:r>`` for ``text``, or ``None`` when ``text`` is empty.
 
     Reserved markers become dedicated child nodes (``<w:tab/>``,
@@ -407,13 +405,9 @@ def _insert_at_boundary(
 
     if host_node.tag == _T:
         if boundary_is_left:
-            _, right_run = _split_run_before(
-                host_run, host_node, boundary_position.node_offset
-            )
+            _, right_run = _split_run_before(host_run, host_node, boundary_position.node_offset)
         else:
-            _, right_run = _split_run_after(
-                host_run, host_node, boundary_position.node_offset
-            )
+            _, right_run = _split_run_after(host_run, host_node, boundary_position.node_offset)
     else:
         # Marker: never split inside; only around.
         if boundary_is_left:
@@ -432,9 +426,7 @@ def _insert_at_boundary(
 # ---------------------------------------------------------------------------
 
 
-def _check_match_capability(
-    text_map: TextMap, start: int, end: int, *, target_id: str
-) -> None:
+def _check_match_capability(text_map: TextMap, start: int, end: int, *, target_id: str) -> None:
     structs = text_map.structures_in_range(start, end)
     evaluate_capability(structs, (start, end), target_id=target_id)
     if range_hits_atomic(text_map.atomic_ranges, start, end):
@@ -698,9 +690,7 @@ class Paragraph:
         raw: bool = False,
         normalize_text: bool = False,
     ) -> list[Paragraph]:
-        return self._doc().insert_para_after(
-            self.id, items, raw=raw, normalize_text=normalize_text
-        )
+        return self._doc().insert_para_after(self.id, items, raw=raw, normalize_text=normalize_text)
 
     def replace_para(
         self,
@@ -709,9 +699,7 @@ class Paragraph:
         raw: bool = False,
         normalize_text: bool = False,
     ) -> list[Paragraph]:
-        return self._doc().replace_para(
-            self.id, items, raw=raw, normalize_text=normalize_text
-        )
+        return self._doc().replace_para(self.id, items, raw=raw, normalize_text=normalize_text)
 
     def delete_para(self) -> None:
         self._doc().delete_para([self.id])
@@ -729,9 +717,7 @@ class Paragraph:
         element = self._element()
         selector = Selector.coerce(find)
         text = _maybe_normalize(replacement, normalize_text)
-        apply_replace_text(
-            element, selector, text, occurrence, target_id=self.id
-        )
+        apply_replace_text(element, selector, text, occurrence, target_id=self.id)
 
     def delete_text(
         self,
@@ -754,9 +740,7 @@ class Paragraph:
         element = self._element()
         selector = Selector.coerce(find)
         payload = _maybe_normalize(text, normalize_text)
-        apply_insert_text_before(
-            element, selector, payload, occurrence, target_id=self.id
-        )
+        apply_insert_text_before(element, selector, payload, occurrence, target_id=self.id)
 
     def insert_text_after(
         self,
@@ -769,9 +753,7 @@ class Paragraph:
         element = self._element()
         selector = Selector.coerce(find)
         payload = _maybe_normalize(text, normalize_text)
-        apply_insert_text_after(
-            element, selector, payload, occurrence, target_id=self.id
-        )
+        apply_insert_text_after(element, selector, payload, occurrence, target_id=self.id)
 
 
 def _maybe_normalize(text: str, enabled: bool) -> str:

@@ -12,3 +12,5 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 .qoder
+benchmarks/results/
+site/

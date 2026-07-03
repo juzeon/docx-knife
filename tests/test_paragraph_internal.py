@@ -35,10 +35,7 @@ def _text(p: etree._Element) -> str:
 
 
 def test_cross_run_literal_replace_preserves_second_run_formatting() -> None:
-    p = _p(
-        "<w:r><w:t>违约</w:t></w:r>"
-        "<w:r><w:rPr><w:b/></w:rPr><w:t>责任</w:t></w:r>"
-    )
+    p = _p("<w:r><w:t>违约</w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>责任</w:t></w:r>")
     result = apply_replace_text(
         p,
         Selector(pattern="违约责任"),
@@ -56,10 +53,7 @@ def test_cross_run_literal_replace_preserves_second_run_formatting() -> None:
 
 
 def test_cross_run_regex_replace_unique() -> None:
-    p = _p(
-        "<w:r><w:t>如乙方未能</w:t></w:r>"
-        "<w:r><w:t>按期承担违约责任</w:t></w:r>"
-    )
+    p = _p("<w:r><w:t>如乙方未能</w:t></w:r><w:r><w:t>按期承担违约责任</w:t></w:r>")
     apply_replace_text(
         p,
         Selector(pattern="如乙方.*?违约责任", regex=True),
@@ -71,10 +65,7 @@ def test_cross_run_regex_replace_unique() -> None:
 
 
 def test_ambiguous_when_two_matches_and_none() -> None:
-    p = _p(
-        "<w:r><w:t>三十日 A</w:t></w:r>"
-        "<w:r><w:t> B 三十日</w:t></w:r>"
-    )
+    p = _p("<w:r><w:t>三十日 A</w:t></w:r><w:r><w:t> B 三十日</w:t></w:r>")
     with pytest.raises(AmbiguousTextMatchError):
         apply_replace_text(
             p, Selector(pattern="三十日"), "六十日", occurrence=None, target_id="p_x"
@@ -82,71 +73,50 @@ def test_ambiguous_when_two_matches_and_none() -> None:
 
 
 def test_occurrence_indexed_picks_second_match() -> None:
-    p = _p(
-        "<w:r><w:t>三十日 A </w:t></w:r>"
-        "<w:r><w:t>三十日 B</w:t></w:r>"
-    )
-    apply_replace_text(
-        p, Selector(pattern="三十日"), "六十日", occurrence=1, target_id="p_x"
-    )
+    p = _p("<w:r><w:t>三十日 A </w:t></w:r><w:r><w:t>三十日 B</w:t></w:r>")
+    apply_replace_text(p, Selector(pattern="三十日"), "六十日", occurrence=1, target_id="p_x")
     assert _text(p) == "三十日 A 六十日 B"
 
 
 def test_occurrence_all_edits_all_right_to_left() -> None:
     p = _p("<w:r><w:t>a-a-a</w:t></w:r>")
-    apply_replace_text(
-        p, Selector(pattern="a"), "b", occurrence=-1, target_id="p_x"
-    )
+    apply_replace_text(p, Selector(pattern="a"), "b", occurrence=-1, target_id="p_x")
     assert _text(p) == "b-b-b"
 
 
 def test_out_of_range_occurrence_raises() -> None:
     p = _p("<w:r><w:t>ab</w:t></w:r>")
     with pytest.raises(TextNotFoundError):
-        apply_replace_text(
-            p, Selector(pattern="ab"), "cd", occurrence=5, target_id="p_x"
-        )
+        apply_replace_text(p, Selector(pattern="ab"), "cd", occurrence=5, target_id="p_x")
 
 
 def test_no_match_raises() -> None:
     p = _p("<w:r><w:t>ab</w:t></w:r>")
     with pytest.raises(TextNotFoundError):
-        apply_replace_text(
-            p, Selector(pattern="zzz"), "cd", occurrence=None, target_id="p_x"
-        )
+        apply_replace_text(p, Selector(pattern="zzz"), "cd", occurrence=None, target_id="p_x")
 
 
 # ---------------------------------------------------------------- markers
 
 
 def test_replace_around_tab_keeps_tab_intact() -> None:
-    p = _p(
-        "<w:r><w:t>left</w:t><w:tab/><w:t>right</w:t></w:r>"
-    )
-    apply_replace_text(
-        p, Selector(pattern="left"), "LEFT", occurrence=None, target_id="p_x"
-    )
+    p = _p("<w:r><w:t>left</w:t><w:tab/><w:t>right</w:t></w:r>")
+    apply_replace_text(p, Selector(pattern="left"), "LEFT", occurrence=None, target_id="p_x")
     assert _text(p) == "LEFT[[DOCX:TAB]]right"
     # Tab node still present.
     assert p.findall(f".//{{{_W}}}tab")
 
 
 def test_replacement_containing_marker_creates_real_tab() -> None:
-    p = _p(
-        "<w:r><w:t>ax</w:t></w:r>"
-    )
-    apply_replace_text(
-        p, Selector(pattern="x"), "[[DOCX:TAB]]", occurrence=None, target_id="p_x"
-    )
+    p = _p("<w:r><w:t>ax</w:t></w:r>")
+    apply_replace_text(p, Selector(pattern="x"), "[[DOCX:TAB]]", occurrence=None, target_id="p_x")
     assert _text(p) == "a[[DOCX:TAB]]"
     # A real <w:tab/> element was materialised.
     assert p.findall(f".//{{{_W}}}tab")
 
 
 def test_match_boundary_inside_marker_rejected() -> None:
-    p = _p(
-        "<w:r><w:t>a</w:t><w:tab/><w:t>b</w:t></w:r>"
-    )
+    p = _p("<w:r><w:t>a</w:t><w:tab/><w:t>b</w:t></w:r>")
     # Try to match "[[" which starts inside the marker — this straddles a
     # reserved marker and should be rejected.
     with pytest.raises(UnsupportedStructureError):
@@ -195,14 +165,8 @@ def test_replace_across_hyperlink_boundary_rejected() -> None:
 
 
 def test_delete_text_removes_span_only() -> None:
-    p = _p(
-        "<w:r><w:t>alpha-</w:t></w:r>"
-        "<w:r><w:t>beta-</w:t></w:r>"
-        "<w:r><w:t>gamma</w:t></w:r>"
-    )
-    apply_delete_text(
-        p, Selector(pattern="beta-"), occurrence=None, target_id="p_d"
-    )
+    p = _p("<w:r><w:t>alpha-</w:t></w:r><w:r><w:t>beta-</w:t></w:r><w:r><w:t>gamma</w:t></w:r>")
+    apply_delete_text(p, Selector(pattern="beta-"), occurrence=None, target_id="p_d")
     assert _text(p) == "alpha-gamma"
 
 
@@ -215,25 +179,19 @@ def test_insert_before_and_after() -> None:
         p, Selector(pattern="world"), "great ", occurrence=None, target_id="p_i"
     )
     assert _text(p) == "hello great world"
-    apply_insert_text_after(
-        p, Selector(pattern="world"), "!", occurrence=None, target_id="p_i"
-    )
+    apply_insert_text_after(p, Selector(pattern="world"), "!", occurrence=None, target_id="p_i")
     assert _text(p) == "hello great world!"
 
 
 def test_insert_before_at_run_start() -> None:
     p = _p("<w:r><w:t>abc</w:t></w:r>")
-    apply_insert_text_before(
-        p, Selector(pattern="abc"), "X", occurrence=None, target_id="p_i"
-    )
+    apply_insert_text_before(p, Selector(pattern="abc"), "X", occurrence=None, target_id="p_i")
     assert _text(p) == "Xabc"
 
 
 def test_insert_after_at_run_end() -> None:
     p = _p("<w:r><w:t>abc</w:t></w:r>")
-    apply_insert_text_after(
-        p, Selector(pattern="abc"), "Y", occurrence=None, target_id="p_i"
-    )
+    apply_insert_text_after(p, Selector(pattern="abc"), "Y", occurrence=None, target_id="p_i")
     assert _text(p) == "abcY"
 
 
@@ -242,9 +200,7 @@ def test_insert_after_at_run_end() -> None:
 
 def test_full_replacement_removes_bare_run() -> None:
     p = _p("<w:r><w:t>foo</w:t></w:r><w:r><w:t>bar</w:t></w:r>")
-    apply_delete_text(
-        p, Selector(pattern="foo"), occurrence=None, target_id="p_e"
-    )
+    apply_delete_text(p, Selector(pattern="foo"), occurrence=None, target_id="p_e")
     # First run had only <w:t>foo</w:t>; after emptying it must be removed.
     runs = p.findall(f"{{{_W}}}r")
     assert len(runs) == 1  # one replacement run may or may not exist; delete has none
@@ -253,16 +209,8 @@ def test_full_replacement_removes_bare_run() -> None:
 
 
 def test_run_with_drawing_kept_even_when_text_empty() -> None:
-    p = _p(
-        "<w:r>"
-        '<w:drawing><w:x/></w:drawing>'
-        "<w:t>foo</w:t>"
-        "</w:r>"
-        "<w:r><w:t>bar</w:t></w:r>"
-    )
-    apply_delete_text(
-        p, Selector(pattern="foo"), occurrence=None, target_id="p_e"
-    )
+    p = _p("<w:r><w:drawing><w:x/></w:drawing><w:t>foo</w:t></w:r><w:r><w:t>bar</w:t></w:r>")
+    apply_delete_text(p, Selector(pattern="foo"), occurrence=None, target_id="p_e")
     # The first run kept because of the drawing.
     runs = p.findall(f"{{{_W}}}r")
     assert len(runs) == 2
@@ -274,12 +222,8 @@ def test_run_with_drawing_kept_even_when_text_empty() -> None:
 
 def test_sequential_ops_use_rebuilt_map() -> None:
     p = _p("<w:r><w:t>A B</w:t></w:r>")
-    apply_replace_text(
-        p, Selector(pattern="A"), "AA", occurrence=None, target_id="p_s"
-    )
-    apply_replace_text(
-        p, Selector(pattern="AA"), "AAA", occurrence=None, target_id="p_s"
-    )
+    apply_replace_text(p, Selector(pattern="A"), "AA", occurrence=None, target_id="p_s")
+    apply_replace_text(p, Selector(pattern="AA"), "AAA", occurrence=None, target_id="p_s")
     assert _text(p) == "AAA B"
 
 
@@ -304,9 +248,7 @@ def test_raw_true_rejected_on_all_ops() -> None:
 
 def test_escaped_literal_docx_survives_replace() -> None:
     p = _p("<w:r><w:t>foo [[DOCX:TAB]] bar</w:t></w:r>")
-    apply_replace_text(
-        p, Selector(pattern="foo"), "FOO", occurrence=None, target_id="p_esc"
-    )
+    apply_replace_text(p, Selector(pattern="foo"), "FOO", occurrence=None, target_id="p_esc")
     # The literal text with escape survives (still escaped in the map).
     assert "\\[[DOCX:TAB]]" in build_text_map(p).text
     # And no real <w:tab/> was created for the escaped literal.

@@ -113,9 +113,7 @@ def _serialize_main_xml(tree: etree._ElementTree) -> bytes:
     )
 
 
-def _build_temp_package(
-    source_path: Path, temp_output: Path, tree: etree._ElementTree
-) -> None:
+def _build_temp_package(source_path: Path, temp_output: Path, tree: etree._ElementTree) -> None:
     new_main = _serialize_main_xml(tree)
     with (
         zipfile.ZipFile(source_path, "r") as source_zip,
