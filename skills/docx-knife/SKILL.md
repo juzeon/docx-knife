@@ -298,6 +298,7 @@ with Document.open("doc.docx") as doc:
 - **Newlines in content**: `\n` → `<w:br/>`; `\n\n`+ → paragraph split.
 - **`normalize_text=True`**: opt-in CJK punctuation normalization (half→full-width when adjacent to CJK).
 - **Conflict rules**: no `replace_para` + text op on same target; no duplicate `op_id`; no op referencing an already-invalidated ID.
+- **`content_ref` availability**: all content-bearing ops accept `content_ref` — paragraph-level (`insert_para_before`, `insert_para_after`, `replace_para`) via `items`, text-level (`replace_text`, `insert_text_before`, `insert_text_after`) via `replacement`/`text`. All three source types (`ContentSourceFile`, `ContentSourceJsonPath`, `ContentSourceCommand`) work in every position.
 
 ## Further reference
 
