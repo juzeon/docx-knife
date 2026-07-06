@@ -103,10 +103,7 @@ class Document:
         self._content_config: ContentResolverConfig = (
             content_config
             if content_config is not None
-            else ContentResolverConfig(
-                workspace_root=temp_dir,
-                input_roots=(source_path.parent.resolve(),),
-            )
+            else _default_content_config(source_path)
         )
         self._last_op_warnings: tuple[str, ...] = ()
         self._change_log: list[dict[str, object]] = []
@@ -726,6 +723,13 @@ def _previous_paragraph_sibling(element: etree._Element) -> etree._Element | Non
             return sibling
         sibling = sibling.getprevious()
     return None
+
+
+def _default_content_config(source_path: Path) -> ContentResolverConfig:
+    cwd = Path.cwd().resolve()
+    source_dir = source_path.parent.resolve()
+    roots: tuple[Path, ...] = (cwd,) if source_dir == cwd else (cwd, source_dir)
+    return ContentResolverConfig(workspace_root=cwd, input_roots=roots)
 
 
 def _fingerprint(path: Path, data: bytes) -> _SourceFingerprint:

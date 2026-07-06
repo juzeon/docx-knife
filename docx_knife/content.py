@@ -44,7 +44,11 @@ class ContentResolverConfig:
     """Configuration for content-reference resolution.
 
     ``workspace_root`` is the base directory for relative source paths and the
-    working directory of command references. ``input_roots`` restricts file and
+    working directory of command references. When :meth:`Document.open` builds
+    the default config it uses the caller's current working directory so that
+    ``ContentSourceFile(path="notes.txt")`` resolves the same way a shell user
+    would expect; both the CWD and the source document's parent directory are
+    granted read access via ``input_roots``. ``input_roots`` restricts file and
     JSONPath sources to a declared set of directories via
     :meth:`pathlib.Path.is_relative_to` after ``resolve(strict=True)``.
     ``command_env_allowlist`` names the parent environment variables that may
