@@ -5,42 +5,20 @@ description: Edit .docx files without hallucinating text, breaking OOXML, or dum
 
 # docx-knife
 
-Query for paragraph IDs, then submit one atomic batch of operations that reference those IDs. The engine owns XML parsing, TextMap alignment, structural preservation, rollback, and safe save. Read further docs only when needed.
+Query paragraph IDs, then submit one atomic batch referencing those IDs. The engine owns XML parsing, TextMap alignment, structural preservation, rollback, and safe save.
 
-## Non-negotiable rules
+## Rules
 
-- Only paragraph IDs returned by read APIs in **this session** are valid. Never invent IDs, XPath, indexes, `w14:paraId`, or offsets.
-- Any string longer than ~100 chars must go through `content_ref`, not `content_literal`.
-- `raw=true` is forbidden. The LLM-facing schema rejects the field.
-- One `batch_edit` is one atomic write; do not call `save()` inside a batch, and never resubmit a failed batch verbatim — read the error, fix the batch, then resubmit.
-- Keep a batch to ≤ 50 operations; split larger changes into successive atomic batches.
+- Only use paragraph IDs returned by read APIs **in this session**. Never invent IDs.
+- Strings > ~100 chars → `content_ref`. Short human phrases ≤ ~40 chars → `content_literal`.
+- `raw=True` is forbidden.
+- One `batch_edit` = one atomic write. Never call `save()` inside a batch.
+- On failure: read the error, fix the batch, resubmit. Never resubmit verbatim.
+- Keep batches ≤ 50 operations.
 
-## Workflow
+## Examples
 
-1. **Locate.** `list_paragraphs` / `grep_paragraphs` / `find_text` → paragraph IDs + previews.
-2. **Compose.** Build operations referencing those IDs; prefer `content_ref` for deterministic or long text.
-3. **Submit.** `batch_edit(operations=[...])`. Success → `EditResult`. Failure → structured `DocxKnifeError`.
-4. **Save.** `save(output_path)` once. Writes atomically, produces `.bak` if the destination existed.
-
-Reopening the file (new `Document.open`) invalidates all prior IDs.
-
-## Public API (one-line signatures)
-
-Read:
-
-- `Document.open(source_path, *, content_config=None) -> Document`  (also `with ...:`)
-- `Document.paragraph_count()`, `list_paragraphs`, `get_paragraph`, `get_visible_text`
-- `Document.grep_paragraphs`, `count_matches`, `find_text`, `get_paragraph_object`
-
-Write (one batch per call):
-
-- `Document.batch_edit(operations, *, normalize_text=False, envelope=None) -> EditResult`
-- `Document.save(output_path) -> SaveResult`
-- `Document.change_log()` — audit only.
-
-Schema helpers: `docx_knife.BATCH_SCHEMA`, `docx_knife.validate_batch(payload)`.
-
-## Minimal example
+### Find and replace text in a paragraph
 
 ```python
 from docx_knife import Document, EditOperation
@@ -48,26 +26,198 @@ from docx_knife import Document, EditOperation
 with Document.open("contract.docx") as doc:
     target = doc.grep_paragraphs("30 天").matches[0].paragraph.id
     doc.batch_edit([
-        EditOperation.replace_text(op_id="op1", paragraph_id=target,
-                                   find="30 天", replacement="60 天"),
+        EditOperation.replace_text(
+            op_id="op1", paragraph_id=target,
+            find="30 天", replacement="60 天",
+        ),
     ])
     doc.save("contract.edited.docx")
 ```
 
-End-to-end batch (replace + insert + delete in one call): see [docs/quickstart.md](docs/quickstart.md).
+### List and browse paragraphs
 
-## Batch JSON schema
+```python
+with Document.open("report.docx") as doc:
+    # First 10 paragraphs, 80-char preview
+    result = doc.list_paragraphs(start=1, limit=10, max_chars=80)
+    for info in result.paragraphs:
+        print(info.id, "|", info.text)
 
-Every operation has a unique `op_id`, an `op` discriminator, target IDs, and either `items` (paragraph ops) or `find` + content (text ops). `additionalProperties=false` everywhere; `raw` is not permitted.
+    # Search by pattern
+    hits = doc.grep_paragraphs("违约", regex=False, max_chars=60)
+    for m in hits.matches:
+        print(m.paragraph.id, m.match_count, "|", m.paragraph.text)
+```
 
-Machine-readable schema: [`agent_schema.json`](agent_schema.json). Regenerate via `python skills/docx-knife/_export_schema.py`.
+### Multi-operation atomic batch
 
-Concrete envelopes: [`examples/replace_dates.json`](examples/replace_dates.json), [`examples/insert_and_delete.json`](examples/insert_and_delete.json).
+```python
+with Document.open("contract.docx") as doc:
+    anchor = doc.list_paragraphs(start=1, limit=1).paragraphs[0].id
+    target = doc.grep_paragraphs("责任条款 1").matches[0].paragraph.id
+    stale = doc.list_paragraphs(start=doc.paragraph_count(), limit=1).paragraphs[0].id
 
-## When to read what
+    result = doc.batch_edit([
+        EditOperation.insert_para_after(
+            op_id="op1", target_id=anchor,
+            items=["This clause was inserted by docx-knife."],
+        ),
+        EditOperation.replace_para(
+            op_id="op2", target_id=target,
+            items=["第 1 条：责任条款已被整段替换。"],
+        ),
+        EditOperation.delete_para(op_id="op3", target_ids=[stale]),
+        EditOperation.replace_text(
+            op_id="op4", paragraph_id=anchor,
+            find="Test Contract", replacement="Sample Contract",
+        ),
+    ])
+    doc.save("contract.edited.docx")
+```
 
-- Op semantics, conflict matrix, `w:pPr` inheritance → [docs/operations.md](docs/operations.md)
-- `content_literal` vs. `content_ref` (jsonpath / file / command), newline expansion, `normalize_text`, selectors, raw mode → [docs/content-sources.md](docs/content-sources.md)
-- Structured error fields and recommended responses → [docs/errors.md](docs/errors.md)
-- Open / query / batch / save invariants and fingerprinting → [docs/lifecycle.md](docs/lifecycle.md)
-- Full API reference → [agent_schema.json](agent_schema.json)
+### Insert text before/after a match
+
+```python
+with Document.open("memo.docx") as doc:
+    pid = doc.grep_paragraphs("deadline").matches[0].paragraph.id
+    doc.batch_edit([
+        EditOperation.insert_text_after(
+            op_id="op1", paragraph_id=pid,
+            find="deadline", text=" (extended)",
+        ),
+    ])
+    doc.save("memo.edited.docx")
+```
+
+### Delete text from a paragraph
+
+```python
+with Document.open("draft.docx") as doc:
+    pid = doc.grep_paragraphs("DRAFT").matches[0].paragraph.id
+    doc.batch_edit([
+        EditOperation.delete_text(op_id="op1", paragraph_id=pid, find="DRAFT"),
+    ])
+    doc.save("draft.clean.docx")
+```
+
+### Use `content_ref` for long or deterministic text
+
+```python
+from docx_knife import Document, EditOperation, ContentItem, ContentSourceJsonPath, ContentSourceFile
+
+with Document.open("contract.docx") as doc:
+    pid = doc.grep_paragraphs("Party A").matches[0].paragraph.id
+
+    # From a JSON file
+    doc.batch_edit([
+        EditOperation.replace_text(
+            op_id="op1", paragraph_id=pid,
+            find="Party A",
+            replacement=ContentItem(
+                content_ref=ContentSourceJsonPath(source="data.json", path="$.party_a.name"),
+            ),
+        ),
+    ])
+
+    # Replace a whole paragraph with content from a file
+    target = doc.grep_paragraphs("保密条款").matches[0].paragraph.id
+    doc.batch_edit([
+        EditOperation.replace_para(
+            op_id="op2", target_id=target,
+            items=[ContentItem(content_ref=ContentSourceFile(path="clauses/confidentiality.txt"))],
+        ),
+    ])
+    doc.save("contract.final.docx")
+```
+
+### Handle multiple matches with `occurrence`
+
+```python
+with Document.open("report.docx") as doc:
+    pid = doc.grep_paragraphs("2024").matches[0].paragraph.id
+
+    # Replace only the first occurrence (0-indexed)
+    doc.batch_edit([
+        EditOperation.replace_text(
+            op_id="op1", paragraph_id=pid,
+            find="2024", replacement="2025", occurrence=0,
+        ),
+    ])
+
+    # Replace ALL occurrences (right-to-left, offsets stay valid)
+    doc.batch_edit([
+        EditOperation.replace_text(
+            op_id="op2", paragraph_id=pid,
+            find="2024", replacement="2025", occurrence=-1,
+        ),
+    ])
+    doc.save("report.updated.docx")
+```
+
+### Regex selector
+
+```python
+with Document.open("legal.docx") as doc:
+    pid = doc.grep_paragraphs("第.*条", regex=True).matches[0].paragraph.id
+    doc.batch_edit([
+        EditOperation.replace_text(
+            op_id="op1", paragraph_id=pid,
+            find={"pattern": r"第\d+条", "regex": True},
+            replacement="第 99 条", occurrence=0,
+        ),
+    ])
+    doc.save("legal.edited.docx")
+```
+
+### Error handling
+
+```python
+from docx_knife import (
+    Document, EditOperation, BatchOperationError,
+    AmbiguousTextMatchError, ParagraphNotFoundError,
+)
+
+with Document.open("doc.docx") as doc:
+    try:
+        doc.batch_edit(operations)
+    except AmbiguousTextMatchError as e:
+        # Multiple matches — supply occurrence or narrow the selector
+        print(f"{e.total_matches} matches for selector on {e.target_id}")
+    except ParagraphNotFoundError as e:
+        # ID was invalidated — re-query
+        print(f"stale ID: {e.target_id}")
+    except BatchOperationError as e:
+        # Entire batch rolled back; inspect and fix
+        print(f"op {e.op_id} failed: {e.reason}")
+        assert e.rolled_back is True
+```
+
+## Operation reference
+
+| Op | Target | What it does |
+| --- | --- | --- |
+| `insert_para_before` | `target_id` | Insert paragraphs before anchor |
+| `insert_para_after` | `target_id` | Insert paragraphs after anchor |
+| `replace_para` | `target_id` | Replace entire paragraph (old ID invalidated) |
+| `delete_para` | `target_ids` | Delete paragraphs (IDs invalidated) |
+| `replace_text` | `paragraph_id` + `find` | Replace matched text span |
+| `insert_text_before` | `paragraph_id` + `find` | Insert before matched span |
+| `insert_text_after` | `paragraph_id` + `find` | Insert after matched span |
+| `delete_text` | `paragraph_id` + `find` | Delete matched span |
+
+## Key behaviors
+
+- **Rollback**: any op failure rolls back the entire batch to pre-batch state.
+- **ID invalidation**: `replace_para` and `delete_para` permanently invalidate target IDs. New IDs are returned in `OperationResult.new_ids`.
+- **Style inheritance**: new paragraphs inherit `w:pPr` and first-run `w:rPr` from anchor. Text edits inherit `w:rPr` from the left boundary.
+- **Newlines in content**: `\n` → `<w:br/>`; `\n\n`+ → paragraph split.
+- **`normalize_text=True`**: opt-in CJK punctuation normalization (half→full-width when adjacent to CJK).
+- **Conflict rules**: no `replace_para` + text op on same target; no duplicate `op_id`; no op referencing an already-invalidated ID.
+
+## Further reference
+
+- Machine-readable schema: [agent_schema.json](agent_schema.json)
+- Content sources detail: [docs/content-sources.md](docs/content-sources.md)
+- Error fields and recovery patterns: [docs/errors.md](docs/errors.md)
+- Operation conflict matrix: [docs/operations.md](docs/operations.md)
+- Lifecycle invariants: [docs/lifecycle.md](docs/lifecycle.md)

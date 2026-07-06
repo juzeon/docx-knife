@@ -21,4 +21,4 @@ with Document.open("contract.docx") as doc:
     print(saved.backup_path)  # -> contract.edited.docx.bak, or None
 ```
 
-Next: [Quickstart](quickstart.md) · [API reference](api.md) · [Errors](errors.md).
+Next: [Quickstart](quickstart.md) · [Errors](errors.md).

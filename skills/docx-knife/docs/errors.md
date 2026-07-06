@@ -1,6 +1,6 @@
 # Errors
 
-Every failure subclasses [`DocxKnifeError`](api.md#docx_knife.DocxKnifeError) and carries structured JSON-serializable fields via `to_dict()`. Message strings are bounded so error output cannot blow up logs or LLM contexts.
+Every failure subclasses `DocxKnifeError` and carries structured JSON-serializable fields via `to_dict()`. Message strings are bounded so error output cannot blow up logs or LLM contexts.
 
 ## Reference table
 

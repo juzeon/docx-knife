@@ -33,7 +33,7 @@ p_000002 | 第一部分 定义
 p_000003 | 第 1 条：定义条款 1 的正文内容。
 ```
 
-Locate by pattern with [`grep_paragraphs`](api.md#docx_knife.Document):
+Locate by pattern with `grep_paragraphs`:
 
 ```python
 hits = doc.grep_paragraphs("target", regex=False, max_chars=60)
@@ -85,7 +85,7 @@ op_text replace_text success ()
 saved: contract.edited.docx backup: None
 ```
 
-Every [`OperationResult`](api.md#docx_knife.OperationResult) correlates by input order and reports `new_ids` plus bounded previews for auditing.
+Every `OperationResult` correlates by input order and reports `new_ids` plus bounded previews for auditing.
 
 ## LLM-caller rules
 
