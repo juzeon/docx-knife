@@ -60,7 +60,18 @@ def save_document(document: Document, output_path: str | os.PathLike[str]) -> Sa
     if dest.exists():
         backup_path = _write_backup(dest)
 
-    os.replace(scratch, dest)
+    # Stage into dest's parent so os.replace never crosses drive boundaries.
+    staged = dest_parent / f".docx-knife-save-{uuid.uuid4().hex}.docx"
+    try:
+        shutil.copy2(scratch, staged)
+        os.replace(staged, dest)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            staged.unlink()
+        raise
+    finally:
+        with contextlib.suppress(OSError):
+            scratch.unlink()
 
     resolved_dest = dest.resolve()
     if resolved_dest == source_path.resolve():
