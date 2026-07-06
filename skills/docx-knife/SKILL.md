@@ -194,6 +194,66 @@ with Document.open("legal.docx") as doc:
     doc.save("legal.edited.docx")
 ```
 
+### Global find-and-replace with `replace_all`
+
+Replace all occurrences of a string across the entire document in a single call. Returns the total number of substitutions.
+
+```python
+with Document.open("contract.docx") as doc:
+    count = doc.replace_all("Old Corp", "New Corp")
+    print(f"Replaced {count} occurrences")
+
+    # Regex mode
+    count = doc.replace_all(r"第\d+条", "第X条", regex=True)
+
+    # With CJK punctuation normalization
+    count = doc.replace_all("test", "测试", normalize_text=True)
+
+    doc.save("contract.updated.docx")
+```
+
+### Section operations with `list_sections` and `get_section`
+
+Query heading-delimited sections without manually walking paragraph IDs.
+
+```python
+from docx_knife import Document, SectionInfo
+
+with Document.open("report.docx") as doc:
+    # List all sections
+    sections = doc.list_sections()
+    for s in sections:
+        print(f"L{s.level}: {s.heading_text} ({len(s.body_ids)} body paras)")
+
+    # Filter by heading level
+    h1_only = doc.list_sections(level=1)
+
+    # Get a specific section by heading ID
+    section = doc.get_section(sections[0].heading_id)
+    # section.all_ids includes heading + body paragraph IDs
+    # section.body_ids includes only body paragraph IDs
+```
+
+### Cross-document paragraph copy with `copy_paragraphs_from`
+
+Extract formatted paragraphs from one document for insertion into another.
+
+```python
+with Document.open("source.docx") as source, Document.open("target.docx") as target:
+    # Get paragraph IDs from source
+    paras = source.list_paragraphs(max_chars=0).paragraphs
+    start_id = paras[2].id
+    end_id = paras[5].id
+
+    # Copy raw XML paragraphs (preserves run formatting)
+    fragments = target.copy_paragraphs_from(source, start_id, end_id)
+
+    # Insert into target using raw=True
+    anchor = target.list_paragraphs(start=1, limit=1).paragraphs[0].id
+    target.insert_para_after(anchor, fragments, raw=True)
+    target.save("target.updated.docx")
+```
+
 ### Error handling
 
 ```python

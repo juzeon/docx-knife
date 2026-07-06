@@ -101,6 +101,17 @@ class ParagraphSearchResult:
 
 
 @dataclass(frozen=True, slots=True)
+class SectionInfo:
+    """A heading-delimited section of paragraphs."""
+
+    heading_id: str
+    heading_text: str
+    level: int
+    body_ids: tuple[str, ...]
+    all_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class TextMatch:
     """A resolved ``find_text`` hit anchored to a paragraph ID."""
 
@@ -637,6 +648,7 @@ __all__ = [
     "ReplacePara",
     "ReplaceText",
     "SaveResult",
+    "SectionInfo",
     "Selector",
     "TableContext",
     "TextMatch",

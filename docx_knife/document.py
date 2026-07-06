@@ -31,6 +31,7 @@ from ._models import (
     ParagraphMatchInfo,
     ParagraphSearchResult,
     SaveResult,
+    SectionInfo,
     Selector,
     TextMatch,
 )
@@ -512,6 +513,143 @@ class Document:
             envelope=envelope,
         ).run()
 
+    def replace_all(
+        self,
+        find: str,
+        replacement: str,
+        *,
+        regex: bool = False,
+        normalize_text: bool = False,
+    ) -> int:
+        """Replace all occurrences of *find* across all paragraphs.
+
+        Returns the total number of substitutions performed.
+        """
+        from .paragraph import apply_replace_text
+        from .textmap import compile_selector
+
+        if normalize_text:
+            from .content import normalize
+            replacement = normalize(replacement)
+
+        selector = Selector(pattern=find, regex=regex)
+        matcher = compile_selector(selector)
+        total = 0
+        for record in self._ensure_index().records:
+            text = _ooxml.visible_text_plain(record.node)
+            matches = matcher(text)
+            if not matches:
+                continue
+            total += len(matches)
+            apply_replace_text(
+                record.node, selector, replacement, -1, target_id=record.target_id
+            )
+        self._invalidate_index()
+        return total
+
+    def list_sections(
+        self,
+        *,
+        level: int | None = None,
+        style_prefix: str = "Heading",
+    ) -> list[SectionInfo]:
+        """Return section descriptors for heading-delimited paragraph ranges.
+
+        Each section extends from a heading paragraph until the next heading of
+        the same or higher (lower number) level, or end of document.
+        """
+        records = self._ensure_index().records
+        headings: list[tuple[int, int, _ParagraphRecord]] = []
+        for idx, rec in enumerate(records):
+            hlevel = _detect_heading_level(rec.style_id, style_prefix)
+            if hlevel is not None:
+                headings.append((idx, hlevel, rec))
+
+        sections: list[SectionInfo] = []
+        for i, (h_idx, h_level, h_rec) in enumerate(headings):
+            end_idx = len(records)
+            for j in range(i + 1, len(headings)):
+                if headings[j][1] <= h_level:
+                    end_idx = headings[j][0]
+                    break
+            body_ids = tuple(records[k].target_id for k in range(h_idx + 1, end_idx))
+            all_ids = (h_rec.target_id,) + body_ids
+            heading_text = _ooxml.visible_text_plain(h_rec.node)
+            sections.append(
+                SectionInfo(
+                    heading_id=h_rec.target_id,
+                    heading_text=heading_text,
+                    level=h_level,
+                    body_ids=body_ids,
+                    all_ids=all_ids,
+                )
+            )
+
+        if level is not None:
+            sections = [s for s in sections if s.level == level]
+        return sections
+
+    def get_section(
+        self,
+        heading_id: str,
+        *,
+        style_prefix: str = "Heading",
+    ) -> SectionInfo:
+        """Return the SectionInfo for the section starting at *heading_id*."""
+        record = self._get_record(heading_id)
+        hlevel = _detect_heading_level(record.style_id, style_prefix)
+        if hlevel is None:
+            raise ValueError(
+                f"paragraph {heading_id!r} is not a heading "
+                f"(style_id={record.style_id!r}, prefix={style_prefix!r})"
+            )
+        for section in self.list_sections(style_prefix=style_prefix):
+            if section.heading_id == heading_id:
+                return section
+        raise ValueError(f"paragraph {heading_id!r} not found as a section heading")
+
+    def copy_paragraphs_from(
+        self,
+        source: Document,
+        start_id: str,
+        end_id: str,
+    ) -> list[str]:
+        """Copy paragraphs from *source* as raw XML strings.
+
+        Returns serialized ``<w:p>`` elements (with ``xmlns:w`` declared) from
+        *start_id* to *end_id* inclusive, suitable for use with
+        ``insert_para_before``/``insert_para_after`` with ``raw=True``.
+        """
+        src_index = source._ensure_index()
+        start_rec = src_index.id_to_record.get(start_id)
+        if start_rec is None:
+            raise ParagraphNotFoundError(target_id=start_id)
+        end_rec = src_index.id_to_record.get(end_id)
+        if end_rec is None:
+            raise ParagraphNotFoundError(target_id=end_id)
+
+        start_pos = start_rec.location.global_ordinal
+        end_pos = end_rec.location.global_ordinal
+        if start_pos > end_pos:
+            raise ValueError(
+                f"start_id {start_id!r} (ordinal {start_pos}) "
+                f"appears after end_id {end_id!r} (ordinal {end_pos})"
+            )
+
+        w_ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        results: list[str] = []
+        for rec in src_index.records:
+            ord_ = rec.location.global_ordinal
+            if ord_ < start_pos:
+                continue
+            if ord_ > end_pos:
+                break
+            raw = etree.tostring(rec.node, encoding="unicode", with_tail=False)
+            if f'xmlns:w="{w_ns}"' not in raw:
+                raw = raw.replace("<w:p", f'<w:p xmlns:w="{w_ns}"', 1)
+            results.append(raw)
+        return results
+
     def change_log(self) -> list[dict[str, object]]:
         """Return a shallow copy of the current change-log entries."""
         return list(self._change_log)
@@ -703,6 +841,19 @@ def _compile_matcher(pattern: str, *, regex: bool) -> _Matcher:
         return found
 
     return _Matcher(_find_literal)
+
+
+def _detect_heading_level(style_id: str | None, style_prefix: str) -> int | None:
+    if style_id is None:
+        return None
+    lower = style_id.lower()
+    prefix_lower = style_prefix.lower()
+    if not lower.startswith(prefix_lower):
+        return None
+    suffix = style_id[len(style_prefix):]
+    if not suffix.isdigit():
+        return None
+    return int(suffix)
 
 
 __all__ = ["Document"]
