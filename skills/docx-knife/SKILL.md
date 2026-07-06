@@ -11,7 +11,7 @@ Query paragraph IDs, then submit one atomic batch referencing those IDs. The eng
 
 - Only use paragraph IDs returned by read APIs **in this session**. Never invent IDs.
 - Strings > ~100 chars → `content_ref`. Short human phrases ≤ ~40 chars → `content_literal`.
-- `raw=True` is forbidden.
+- `raw=True` is allowed on paragraph-level ops (`insert_para_before`, `insert_para_after`, `replace_para`) when you need to emit exact OOXML `<w:p>` fragments; paragraph-internal text ops reject it.
 - One `batch_edit` = one atomic write. Never call `save()` inside a batch.
 - On failure: read the error, fix the batch, resubmit. Never resubmit verbatim.
 - Keep batches ≤ 50 operations.
@@ -130,6 +130,30 @@ with Document.open("contract.docx") as doc:
     doc.save("contract.final.docx")
 ```
 
+### Emit raw OOXML with `raw=True`
+
+Use `raw=True` on paragraph-level ops when you need exact WordprocessingML control (custom run properties, fields, structured tags). Each item must be a top-level `<w:p>` in the standard `w:` namespace. Text expansion and normalization are bypassed.
+
+```python
+with Document.open("contract.docx") as doc:
+    anchor = doc.list_paragraphs(start=1, limit=1).paragraphs[0].id
+    fragment = (
+        '<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:pPr><w:pStyle w:val="Heading1"/></w:pPr>'
+        '<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">附录 A</w:t></w:r>'
+        '</w:p>'
+    )
+    doc.batch_edit([
+        EditOperation.insert_para_after(
+            op_id="op1", target_id=anchor,
+            items=[fragment], raw=True,
+        ),
+    ])
+    doc.save("contract.edited.docx")
+```
+
+Only `insert_para_before`, `insert_para_after`, and `replace_para` accept `raw=True`. Paragraph-internal text ops (`replace_text`, `insert_text_*`, `delete_text`) reject it.
+
 ### Handle multiple matches with `occurrence`
 
 ```python
@@ -209,7 +233,7 @@ with Document.open("doc.docx") as doc:
 
 - **Rollback**: any op failure rolls back the entire batch to pre-batch state.
 - **ID invalidation**: `replace_para` and `delete_para` permanently invalidate target IDs. New IDs are returned in `OperationResult.new_ids`.
-- **Style inheritance**: new paragraphs inherit `w:pPr` and first-run `w:rPr` from anchor. Text edits inherit `w:rPr` from the left boundary.
+- **Style inheritance**: new paragraphs inherit `w:pPr` and the first ordinary text run's `w:rPr` from an anchor paragraph. `insert_para_after` / `replace_para` use the target as anchor; `insert_para_before` uses the *previous sibling paragraph* when one exists so inserting before a heading continues the body flow (falls back to the target when there is no previous paragraph). Text edits inherit `w:rPr` from the left boundary. Runs nested inside revision wrappers like `<w:ins>` count as ordinary text runs for this lookup.
 - **Newlines in content**: `\n` → `<w:br/>`; `\n\n`+ → paragraph split.
 - **`normalize_text=True`**: opt-in CJK punctuation normalization (half→full-width when adjacent to CJK).
 - **Conflict rules**: no `replace_para` + text op on same target; no duplicate `op_id`; no op referencing an already-invalidated ID.

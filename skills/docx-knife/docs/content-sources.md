@@ -92,7 +92,26 @@ Evaluated against final visible text (TextMap): `<w:t>` + `<w:ins>` runs, exclud
 
 ## Raw mode
 
-!!! danger "Trusted callers only"
-    `raw=True` bypasses text expansion and normalization, feeding WordprocessingML fragments directly into the tree. The LLM-facing JSON schema forbids the field. Only paragraph-level insert / replace accept it; every paragraph-internal op rejects it unconditionally.
+`raw=True` bypasses text expansion and normalization, feeding WordprocessingML fragments directly into the tree. Use it when you need exact OOXML control (custom `w:rPr`, styles, fields, structured document tags). Accepted on `insert_para_before`, `insert_para_after`, and `replace_para`; paragraph-internal ops (`replace_text`, `insert_text_before`, `insert_text_after`, `delete_text`) reject it unconditionally.
 
-Raw items must each contain one or more top-level `<w:p>` elements in the standard WordprocessingML namespace. Mixed modes (raw + visible in one item) and content outside that shape are refused.
+Raw items must each contain one or more top-level `<w:p>` elements in the standard WordprocessingML namespace. Mixed modes (raw + visible in one item) and content outside that shape are refused with [`InvalidContentError`](errors.md).
+
+```python
+from docx_knife import Document, EditOperation
+
+fragment = (
+    '<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+    '<w:pPr><w:pStyle w:val="Heading1"/></w:pPr>'
+    '<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">附录 A</w:t></w:r>'
+    '</w:p>'
+)
+
+with Document.open("contract.docx") as doc:
+    anchor = doc.list_paragraphs(start=1, limit=1).paragraphs[0].id
+    doc.batch_edit([
+        EditOperation.insert_para_after(
+            op_id="op1", target_id=anchor, items=[fragment], raw=True,
+        ),
+    ])
+    doc.save("contract.edited.docx")
+```

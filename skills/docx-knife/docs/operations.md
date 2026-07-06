@@ -11,7 +11,7 @@ Common fields:
 - `find` — text selector (paragraph-internal ops). See [content-sources.md](content-sources.md#selectors-find).
 - `occurrence` — 0-based match index, `-1` for all (right-to-left), or `None` to require a unique match.
 - `content_literal` / `content_ref` — mutually exclusive (paragraph-internal insert/replace).
-- `raw` — trusted-caller only; rejected by JSON schema; unconditional reject on paragraph-internal ops.
+- `raw` — accepted on paragraph-level ops (`insert_para_before`, `insert_para_after`, `replace_para`) to submit exact `<w:p>` fragments; paragraph-internal ops reject it. See [Raw mode](content-sources.md#raw-mode).
 
 ## Overview
 

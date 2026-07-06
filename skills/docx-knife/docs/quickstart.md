@@ -91,7 +91,7 @@ Every `OperationResult` correlates by input order and reports `new_ids` plus bou
 
 - Only paragraph IDs returned by a read API in **this session** are valid; never invent IDs, XML, XPath, or offsets.
 - Strings longer than ~40 chars, or any number, date, price, party name, URL, or email must go through `content_ref`.
-- `raw=True` is forbidden.
+- `raw=True` is available on paragraph-level ops (`insert_para_before`, `insert_para_after`, `replace_para`) for emitting exact `<w:p>` fragments; paragraph-internal text ops reject it. See [Content sources › Raw mode](content-sources.md#raw-mode).
 - Do not call `save()` inside a batch, and never resubmit a failed batch verbatim.
 
 See [Errors](errors.md) for the structured error contract and the recommended response per failure.
