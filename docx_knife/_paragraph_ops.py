@@ -10,7 +10,7 @@ delegate here.
 from __future__ import annotations
 
 import copy
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 
 from lxml import etree
 
@@ -89,13 +89,53 @@ def expand_visible_items(items: Sequence[ResolvedItem]) -> list[str]:
     return paragraphs
 
 
+_SKIP_SUBTREE_TAGS: tuple[str, ...] = (
+    _DEL_TAG,
+    _INSTR_TEXT_TAG,
+    qn("w:sdt"),
+    qn("w:sdtContent"),
+)
+
+
+def _iter_visible_runs(anchor: etree._Element) -> Iterator[etree._Element]:
+    """Yield ``<w:r>`` descendants that contribute to the visible text map.
+
+    Descends into wrappers such as ``<w:ins>`` and ``<w:hyperlink>`` so runs
+    hidden inside a revision-tracked insertion still qualify as style sources.
+    Subtrees that never surface in the final view (``<w:del>``, ``<w:sdt>``,
+    ``<w:instrText>``) are skipped entirely.
+    """
+    for elem in anchor.iter():
+        if elem is anchor:
+            continue
+        if elem.tag in _SKIP_SUBTREE_TAGS:
+            # lxml's ``iter`` still descends, but the guard below on the run's
+            # own ancestors keeps consistency.
+            continue
+        if elem.tag != _R_TAG:
+            continue
+        # Confirm no skipped ancestor stands between the run and the anchor.
+        ancestor = elem.getparent()
+        skipped = False
+        while ancestor is not None and ancestor is not anchor:
+            if ancestor.tag in _SKIP_SUBTREE_TAGS:
+                skipped = True
+                break
+            ancestor = ancestor.getparent()
+        if skipped:
+            continue
+        yield elem
+
+
 def _find_first_text_run_rpr(anchor: etree._Element) -> etree._Element | None:
     """Return a deep copy of the anchor's first ordinary text run's ``<w:rPr>``.
 
     An ordinary text run has at least one ``<w:t>`` child and no
-    ``<w:fldChar>`` or ``<w:instrText>`` children.
+    ``<w:fldChar>`` or ``<w:instrText>`` children. Runs nested inside visible
+    wrappers such as ``<w:ins>`` are considered too — otherwise a document
+    where every run is revision-tracked would fall back to Word's defaults.
     """
-    for run in anchor.iterchildren(_R_TAG):
+    for run in _iter_visible_runs(anchor):
         has_text = False
         disqualified = False
         for child in run:

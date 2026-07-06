@@ -385,14 +385,23 @@ class Document:
         normalize_text: bool = False,
     ) -> list[Paragraph]:
         """Insert ``items`` immediately before the paragraph identified by
-        ``target_id``. Returns the new paragraphs in document order."""
-        anchor = self._manifest.resolve(target_id)
+        ``target_id``. Returns the new paragraphs in document order.
+
+        Style is inherited from the previous-sibling paragraph when one exists
+        so that inserting before a heading continues the preceding body flow
+        rather than duplicating the heading's formatting. When ``target_id``
+        has no previous sibling paragraph (e.g. it opens a section), the
+        target itself is used as the style anchor.
+        """
+        target = self._manifest.resolve(target_id)
+        previous = _previous_paragraph_sibling(target)
+        style_anchor = previous if previous is not None else target
         new_elements = self._expand_items_to_elements(
-            anchor=anchor, items=items, raw=raw, normalize_text=normalize_text
+            anchor=style_anchor, items=items, raw=raw, normalize_text=normalize_text
         )
-        parent = anchor.getparent()
+        parent = target.getparent()
         assert parent is not None
-        insert_index = parent.index(anchor)
+        insert_index = parent.index(target)
         for element in new_elements:
             parent.insert(insert_index, element)
             insert_index += 1
@@ -565,6 +574,20 @@ class Document:
 # ---------------------------------------------------------------------------
 # Module-level helpers
 # ---------------------------------------------------------------------------
+
+
+def _previous_paragraph_sibling(element: etree._Element) -> etree._Element | None:
+    """Return the closest preceding ``<w:p>`` sibling of ``element``, or ``None``.
+
+    Non-paragraph siblings (``<w:sectPr>``, ``<w:tbl>``, …) are skipped so the
+    lookup stays scoped to the surrounding body flow.
+    """
+    sibling = element.getprevious()
+    while sibling is not None:
+        if sibling.tag == _ooxml.P_TAG:
+            return sibling
+        sibling = sibling.getprevious()
+    return None
 
 
 def _fingerprint(path: Path, data: bytes) -> _SourceFingerprint:

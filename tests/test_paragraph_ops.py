@@ -78,6 +78,80 @@ def test_formatting_inherits_pPr_and_first_rPr(tmp_path: Path) -> None:
         assert first_run.find(f"{{{_W}}}rPr/{{{_W}}}b") is not None
 
 
+def test_formatting_inherits_rpr_through_ins_wrapper(tmp_path: Path) -> None:
+    """Anchor with revision-wrapped runs still contributes its rPr.
+
+    Regression: ``_find_first_text_run_rpr`` only walked direct ``<w:r>``
+    children, so a paragraph whose only ordinary text run sits inside
+    ``<w:ins>`` fell back to Word's default font.
+    """
+    from tests._fixtures import _write_docx, _wrap_document
+
+    body = (
+        '<w:p><w:pPr></w:pPr>'
+        '<w:ins w:id="7" w:author="A" w:date="2024-01-01T00:00:00Z">'
+        '<w:r><w:rPr><w:rFonts w:ascii="Custom" w:eastAsia="Custom"/><w:b/></w:rPr>'
+        '<w:t>anchor</w:t></w:r>'
+        '</w:ins></w:p>'
+    ) + '<w:p><w:r><w:t>next</w:t></w:r></w:p>'
+    src = tmp_path / "ins.docx"
+    _write_docx(src, _wrap_document(body))
+    with Document.open(src) as doc:
+        anchor_id = doc.list_paragraphs().paragraphs[0].id
+        [new] = doc.insert_para_after(anchor_id, ["inserted"])
+        elem = doc._manifest.resolve(new.id)
+        rpr = elem.find(f"{{{_W}}}r/{{{_W}}}rPr")
+        assert rpr is not None, "rPr must be inherited even through <w:ins>"
+        fonts = rpr.find(f"{{{_W}}}rFonts")
+        assert fonts is not None
+        assert fonts.get(f"{{{_W}}}ascii") == "Custom"
+
+
+def test_insert_before_heading_inherits_previous_body_style(tmp_path: Path) -> None:
+    """Inserting before a heading takes style from the body flow above it.
+
+    Regression: ``insert_para_before`` used the target as the style anchor,
+    so a paragraph inserted before a bold heading became bold itself.
+    """
+    from tests._fixtures import _write_docx, _wrap_document
+
+    body = (
+        '<w:p><w:r><w:rPr><w:rFonts w:ascii="Body"/></w:rPr>'
+        '<w:t>body para</w:t></w:r></w:p>'
+        '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr>'
+        '<w:r><w:rPr><w:b/><w:rFonts w:ascii="Heading"/></w:rPr>'
+        '<w:t>Section title</w:t></w:r></w:p>'
+    )
+    src = tmp_path / "heading.docx"
+    _write_docx(src, _wrap_document(body))
+    with Document.open(src) as doc:
+        ids = [p.id for p in doc.list_paragraphs().paragraphs]
+        heading_id = ids[1]
+        [new] = doc.insert_para_before(heading_id, ["inserted"])
+        elem = doc._manifest.resolve(new.id)
+        rpr = elem.find(f"{{{_W}}}r/{{{_W}}}rPr")
+        assert rpr is not None
+        assert rpr.find(f"{{{_W}}}b") is None, "should not inherit heading bold"
+        fonts = rpr.find(f"{{{_W}}}rFonts")
+        assert fonts is not None
+        assert fonts.get(f"{{{_W}}}ascii") == "Body"
+        # No heading pPr leaked into the new paragraph either.
+        pstyle = elem.find(f"{{{_W}}}pPr/{{{_W}}}pStyle")
+        assert pstyle is None
+
+
+def test_insert_before_first_paragraph_falls_back_to_target(tmp_path: Path) -> None:
+    """No previous sibling → style anchor is the target itself."""
+    src = _fixtures.build_formatted(tmp_path / "fmt.docx")
+    with Document.open(src) as doc:
+        first_id = doc.list_paragraphs().paragraphs[0].id
+        [new] = doc.insert_para_before(first_id, ["inserted"])
+        elem = doc._manifest.resolve(new.id)
+        pstyle = elem.find(f"{{{_W}}}pPr/{{{_W}}}pStyle")
+        assert pstyle is not None
+        assert pstyle.get(f"{{{_W}}}val") == "Heading1"
+
+
 def test_new_paragraph_preserves_boundary_whitespace(tmp_path: Path) -> None:
     src = _fixtures.build_abcd(tmp_path / "abcd.docx")
     with Document.open(src) as doc:
