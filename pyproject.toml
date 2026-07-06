@@ -1,14 +1,16 @@
 [project]
 name = "docx-knife"
-version = "0.1.0"
+version = "0.1.1"
 description = "AI-safe DOCX patch engine with stable paragraph anchors."
 requires-python = ">=3.10,<4.0"
 license = { text = "MIT" }
 authors = [{ name = "docx-knife contributors" }]
-keywords = ["docx", "ooxml", "editor", "ai", "patch"]
+readme = "README.md"
+keywords = ["docx", "ooxml", "editor", "ai", "patch", "word", "agent"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -18,13 +20,20 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Text Processing :: Markup :: XML",
+    "Typing :: Typed",
 ]
+
 dependencies = [
     "lxml>=5",
     "defusedxml>=0.7",
     "jsonpath-ng>=1.6",
     "jsonschema>=4.20",
 ]
+
+[project.urls]
+Homepage = "https://github.com/juzeon/docx-knife"
+Repository = "https://github.com/juzeon/docx-knife"
+Issues = "https://github.com/juzeon/docx-knife/issues"
 
 [dependency-groups]
 dev = [
