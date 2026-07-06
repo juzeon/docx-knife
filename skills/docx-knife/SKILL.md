@@ -10,7 +10,7 @@ Query for paragraph IDs, then submit one atomic batch of operations that referen
 ## Non-negotiable rules
 
 - Only paragraph IDs returned by read APIs in **this session** are valid. Never invent IDs, XPath, indexes, `w14:paraId`, or offsets.
-- Any string longer than ~40 chars, or any number, date, price, party name, URL, or email, must go through `content_ref`, not `content_literal`.
+- Any string longer than ~100 chars must go through `content_ref`, not `content_literal`.
 - `raw=true` is forbidden. The LLM-facing schema rejects the field.
 - One `batch_edit` is one atomic write; do not call `save()` inside a batch, and never resubmit a failed batch verbatim — read the error, fix the batch, then resubmit.
 - Keep a batch to ≤ 50 operations; split larger changes into successive atomic batches.
@@ -70,4 +70,4 @@ Concrete envelopes: [`examples/replace_dates.json`](examples/replace_dates.json)
 - `content_literal` vs. `content_ref` (jsonpath / file / command), newline expansion, `normalize_text`, selectors, raw mode → [docs/content-sources.md](docs/content-sources.md)
 - Structured error fields and recommended responses → [docs/errors.md](docs/errors.md)
 - Open / query / batch / save invariants and fingerprinting → [docs/lifecycle.md](docs/lifecycle.md)
-- Full API reference → [docs/api.md](docs/api.md)
+- Full API reference → [agent_schema.json](agent_schema.json)
