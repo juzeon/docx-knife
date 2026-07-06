@@ -10,7 +10,8 @@ Query paragraph IDs, then submit one atomic batch referencing those IDs. The eng
 ## Rules
 
 - Only use paragraph IDs returned by read APIs **in this session**. Never invent IDs.
-- Strings > ~100 chars → `content_ref`. Short human phrases ≤ ~40 chars → `content_literal`.
+- Strings > ~40 chars → `content_ref`. Only short human phrases ≤ ~40 chars → `content_literal`.
+- **Never materialize external text as `content_literal`**: text extracted from other documents, files, or any multi-paragraph source must flow through `content_ref` (`file`, `command`, or `jsonpath`), even if that requires writing a helper script or temp file. The agent must not read source text into a variable and pass it as a literal string.
 - `raw=True` is allowed on paragraph-level ops (`insert_para_before`, `insert_para_after`, `replace_para`) when you need to emit exact OOXML `<w:p>` fragments; paragraph-internal text ops reject it.
 - One `batch_edit` = one atomic write. Never call `save()` inside a batch.
 - On failure: read the error, fix the batch, resubmit. Never resubmit verbatim.

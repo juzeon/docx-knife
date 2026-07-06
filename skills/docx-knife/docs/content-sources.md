@@ -7,9 +7,11 @@ Four channels; exactly one of `content_literal` or `content_ref` per item, else 
 | `content_literal` | Short human phrase ≤ ~40 chars, no numbers/dates/prices/party names/URLs/emails/trademarks. |
 | `content_ref` — `jsonpath` | Structured data from a canonical JSON source. |
 | `content_ref` — `file` | Long clauses, boilerplate, or previously reviewed drafts on disk. |
-| `content_ref` — `command` | Values produced by a deterministic script (formatter, template renderer, date normalizer). |
+| `content_ref` — `command` | Values produced by a deterministic script (formatter, template renderer, date normalizer, **cross-document extraction**). |
 
 Default to `content_ref` for anything longer than ~40 chars or containing deterministic values.
+
+**Hard rule**: text originating from another document, file, or any external source must **always** flow through `content_ref`. Never read external text into a variable and pass it as `content_literal` — this defeats the purpose of keeping large text out of the agent context and risks hallucination drift. When no pre-existing file is available, write a helper script and use `content_ref` — `command`.
 
 ## `content_literal`
 
