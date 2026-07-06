@@ -269,3 +269,42 @@ def test_find_text_document_populates_node_range(tmp_path):  # type: ignore[no-u
         assert m.crosses_nodes is True
         s, e = m.node_range
         assert s != e
+
+
+# ------------------------------------------------- cross-wrapper (revision) splice
+
+
+def test_replace_across_ins_wrapper_consumes_full_span() -> None:
+    """Match spanning <w:ins>… into a paragraph-level run must not leave a tail.
+
+    Regression: previously ``_splice_match`` looked up siblings inside the
+    ``<w:ins>`` parent only, so the tail split off the second run was left
+    behind, producing e.g. ``10、、基金份额`` instead of ``10、基金份额``.
+    """
+    p = _p(
+        "<w:ins><w:r><w:t>9</w:t></w:r></w:ins>"
+        "<w:r><w:t>、基金份额</w:t></w:r>"
+    )
+    apply_replace_text(p, Selector(pattern="9、"), "10、", occurrence=None, target_id="p_ins")
+    assert _text(p) == "10、基金份额"
+    # <w:ins> shell was pruned because its only child run was consumed.
+    assert p.find(f"{{{_W}}}ins") is None
+
+
+def test_delete_across_ins_wrapper_removes_full_span() -> None:
+    p = _p(
+        "<w:ins><w:r><w:t>DRAFT</w:t></w:r></w:ins>"
+        "<w:r><w:t>-hello</w:t></w:r>"
+    )
+    apply_delete_text(p, Selector(pattern="DRAFT-"), occurrence=None, target_id="p_ins_del")
+    assert _text(p) == "hello"
+    assert p.find(f"{{{_W}}}ins") is None
+
+
+def test_replace_across_normal_into_ins_wrapper_consumes_full_span() -> None:
+    p = _p(
+        "<w:r><w:t>foo </w:t></w:r>"
+        "<w:ins><w:r><w:t>bar baz</w:t></w:r></w:ins>"
+    )
+    apply_replace_text(p, Selector(pattern="foo bar"), "X", occurrence=None, target_id="p_norm_ins")
+    assert _text(p) == "X baz"

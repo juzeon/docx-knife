@@ -47,13 +47,20 @@ def _q(local: str) -> str:
 
 _R = _q("r")
 _T = _q("t")
+_P = _q("p")
 _RPR = _q("rPr")
 _TAB = _q("tab")
 _BR = _q("br")
 _CR = _q("cr")
+_INS = _q("ins")
 _TYPE = _q("type")
 
 _XML_SPACE = f"{{{_XML_NS}}}space"
+
+# Wrapper elements the text map may traverse (i.e. capability=allow) whose
+# only purpose is to hold runs. If a splice empties them, drop them so the
+# paragraph doesn't end up with stray revision containers.
+_PRUNABLE_WRAPPERS: frozenset[str] = frozenset({_INS})
 
 _MARKER_TAGS: dict[str, str] = {
     "TAB": _TAB,
@@ -182,6 +189,43 @@ def _cleanup_run(run: etree._Element) -> None:
         parent = run.getparent()
         if parent is not None:
             parent.remove(run)
+
+
+def _prune_empty_wrapper(element: etree._Element | None) -> None:
+    """Remove ``element`` and empty prunable ancestors up to the paragraph."""
+    cur = element
+    while cur is not None and cur.tag != _P:
+        if cur.tag not in _PRUNABLE_WRAPPERS:
+            return
+        if len(cur) > 0:
+            return
+        parent = cur.getparent()
+        if parent is None:
+            return
+        parent.remove(cur)
+        cur = parent
+
+
+def _iter_runs_between(
+    paragraph: etree._Element,
+    start_run: etree._Element,
+    end_run: etree._Element,
+) -> list[etree._Element]:
+    """Return ``<w:r>`` elements from ``start_run`` to ``end_run`` in document order.
+
+    Walks all descendants so runs nested inside wrappers (``<w:ins>``, etc.)
+    are included. Returns an empty list if the run order can't be resolved.
+    """
+    runs: list[etree._Element] = []
+    collecting = False
+    for run in paragraph.iter(_R):
+        if run is start_run:
+            collecting = True
+        if collecting:
+            runs.append(run)
+        if run is end_run:
+            return runs
+    return runs if collecting else []
 
 
 # ---------------------------------------------------------------------------
@@ -365,23 +409,55 @@ def _splice_match(
     else:
         _, last_right = _split_run_after(last_run, last_node, None)
 
-    to_remove: list[etree._Element] = []
-    node: etree._Element | None = first_right
-    while node is not None:
-        to_remove.append(node)
-        if node is last_run:
-            break
-        node = node.getnext()
+    paragraph = first_run
+    while paragraph is not None and paragraph.tag != _P:
+        paragraph = paragraph.getparent()
+    assert paragraph is not None, "run detached from paragraph"
 
-    insertion_index = _child_index(run_parent, first_right)
-    for r in to_remove:
-        run_parent.remove(r)
+    to_remove = _iter_runs_between(paragraph, first_right, last_run)
+    same_parent = first_right.getparent() is last_right.getparent()
+    if same_parent:
+        insert_parent = last_right.getparent()
+        assert insert_parent is not None
+        removed_parents: list[etree._Element] = []
+        for r in to_remove:
+            rp = r.getparent()
+            if rp is not None:
+                rp.remove(r)
+                if rp is not insert_parent:
+                    removed_parents.append(rp)
+        insertion_index = _child_index(insert_parent, last_right)
+        if replacement_run is not None:
+            insert_parent.insert(insertion_index, replacement_run)
+        for rp in removed_parents:
+            _prune_empty_wrapper(rp)
+    else:
+        # Cross-wrapper span: promote the replacement to paragraph level so it
+        # doesn't accidentally inherit a revision wrapper.
+        anchor = last_right
+        while anchor.getparent() is not paragraph:
+            parent = anchor.getparent()
+            assert parent is not None
+            anchor = parent
+        removed_parents = []
+        for r in to_remove:
+            rp = r.getparent()
+            if rp is not None:
+                rp.remove(r)
+                if rp is not paragraph:
+                    removed_parents.append(rp)
+        insertion_index = _child_index(paragraph, anchor)
+        if replacement_run is not None:
+            paragraph.insert(insertion_index, replacement_run)
+        for rp in removed_parents:
+            _prune_empty_wrapper(rp)
 
-    if replacement_run is not None:
-        run_parent.insert(insertion_index, replacement_run)
-
+    first_wrapper = first_run.getparent()
+    last_wrapper = last_right.getparent()
     _cleanup_run(first_run)
     _cleanup_run(last_right)
+    _prune_empty_wrapper(first_wrapper)
+    _prune_empty_wrapper(last_wrapper)
 
 
 def _insert_at_boundary(
